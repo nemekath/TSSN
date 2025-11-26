@@ -497,20 +497,34 @@ class DatabaseIntrospector:
         self.conn = connection
         self.cursor = connection.cursor()
     
-    def introspect_table(self, table_name: str, schema: str = 'public') -> Table:
-        """Extract complete table schema including constraints"""
-        
+    # Default schemas per database (used for @schema auto-detection)
+    DEFAULT_SCHEMAS = {
+        'postgresql': 'public',
+        'mysql': None,  # MySQL uses database name, no separate schema
+        'sqlserver': 'dbo',
+        'mssql': 'dbo',
+    }
+
+    def introspect_table(self, table_name: str, schema: str = 'public',
+                         database_type: str = 'postgresql') -> Table:
+        """Extract complete table schema including constraints (Updated for v0.6.0)"""
+
         table = Table(name=table_name)
-        
+
+        # --- NEW in v0.6.0: Auto-detect non-default schema ---
+        default_schema = self.DEFAULT_SCHEMAS.get(database_type.lower(), 'public')
+        if schema and schema != default_schema:
+            table.metadata.append(f"@schema: {schema}")
+
         # Get columns
         columns = self.get_columns(table_name, schema)
         for col in columns:
             table.add_column(col)
-        
+
         # Get constraints
         constraints = self.get_constraints(table_name, schema)
         self.apply_constraints(table, constraints)
-        
+
         return table
     
     def get_columns(self, table_name: str, schema: str) -> list:
@@ -694,3 +708,6 @@ This pseudocode has been updated for TSSN v0.6.0 with support for:
   - Parser: Extended type regex to capture optional `(\[\])?` suffix
   - Generator: Appends `[]` when `is_array=True`
   - TypeMapper: Detects PostgreSQL array notation (`text[]` or `_text`)
+- **Schema Auto-Detection**: Automatic `@schema` annotation for non-default schemas
+  - Introspector: Compares against `DEFAULT_SCHEMAS` per database type
+  - Emits `@schema: X` metadata when schema differs from default (public/dbo)
