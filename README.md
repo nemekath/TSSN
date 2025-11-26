@@ -115,8 +115,7 @@ interface UserResponse {
 
 ### Community Implementations
 
-- **Rust**: [tssn-rs](https://github.com/community/tssn-rs) - Rust parser
-- **Java**: [tssn-java](https://github.com/community/tssn-java) - Java library
+Welcome
 
 *Want to add your implementation? [Submit a PR](CONTRIBUTING.md)!*
 
