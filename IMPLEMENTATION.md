@@ -52,15 +52,17 @@ class TSSNParser:
         return schema
     
     def parse_interface(self) -> Table:
-        """Parse an interface declaration into a Table object"""
+        """Parse an interface declaration into a Table object (v0.6.0)"""
         line = self.lines[self.current_line]
-        
-        # Extract table name from "interface TableName {"
-        match = re.match(r'interface\s+(\w+)\s*{', line)
+
+        # Extract table name - supports both simple and quoted identifiers
+        # Pattern: interface `Quoted Name` { OR interface SimpleName {
+        match = re.match(r'interface\s+(?:`([^`]+)`|(\w+))\s*{', line)
         if not match:
             raise ParseError(f"Invalid interface declaration at line {self.current_line}")
-        
-        table_name = match.group(1)
+
+        # Name is either group 1 (quoted) or group 2 (simple)
+        table_name = match.group(1) if match.group(1) else match.group(2)
         table = Table(name=table_name)
         
         # Parse preceding comments (table-level metadata)
@@ -100,46 +102,58 @@ class TSSNParser:
     
     def parse_column(self, line: str) -> Column:
         """
-        Parse column definition
-        
-        Format: column_name?: type(length); // comment
+        Parse column definition (Updated for v0.6.0)
+
+        Format: identifier?: type(length)[]; // comment
+        Supports: quoted identifiers, array types
         """
         # Remove trailing semicolon
         line = line.rstrip(';').strip()
-        
+
         # Split into definition and comment
         parts = line.split('//', 1)
         definition = parts[0].strip()
         comment = parts[1].strip() if len(parts) > 1 else None
-        
-        # Split definition into name and type
-        name_type = definition.split(':', 1)
-        if len(name_type) != 2:
-            raise ParseError(f"Invalid column definition: {line}")
-        
-        name_part = name_type[0].strip()
-        type_part = name_type[1].strip()
-        
-        # Check for nullable marker
-        nullable = name_part.endswith('?')
-        column_name = name_part.rstrip('?')
-        
-        # Parse type and optional length
-        type_match = re.match(r'(\w+)(?:\((\d+)\))?', type_part)
+
+        # --- FIX 1: Regex for quoted identifiers (v0.6.0) ---
+        # Group 1: Quoted name (without backticks)
+        # Group 2: Simple name
+        # Group 3: Nullable marker (?)
+        # Group 4: Type definition
+        col_pattern = r'^(?:`([^`]+)`|(\w+))(\??)\s*:\s*(.+)$'
+        match = re.match(col_pattern, definition)
+
+        if not match:
+            raise ParseError(f"Invalid column definition: {definition}")
+
+        # Name is either group 1 (quoted) or group 2 (simple)
+        column_name = match.group(1) if match.group(1) else match.group(2)
+        nullable = bool(match.group(3))
+        type_part = match.group(4).strip()
+
+        # --- FIX 2: Regex for array types (v0.6.0) ---
+        # Group 1: Base type
+        # Group 2: Length (optional)
+        # Group 3: Array suffix (optional)
+        type_pattern = r'^(\w+)(?:\((\d+)\))?(\[\])?$'
+        type_match = re.match(type_pattern, type_part)
+
         if not type_match:
             raise ParseError(f"Invalid type definition: {type_part}")
-        
+
         data_type = type_match.group(1)
         length = int(type_match.group(2)) if type_match.group(2) else None
-        
+        is_array = bool(type_match.group(3))  # New in v0.6.0
+
         # Parse constraints from comment
         constraints = self.parse_constraints(comment) if comment else []
-        
+
         return Column(
             name=column_name,
             type=data_type,
             length=length,
             nullable=nullable,
+            is_array=is_array,  # New in v0.6.0
             constraints=constraints,
             comment=comment
         )
@@ -242,21 +256,24 @@ class TSSNGenerator:
         return '\n'.join(output).rstrip() + '\n'
     
     def generate_table(self, table: Table) -> str:
-        """Generate TSSN for a single table"""
+        """Generate TSSN for a single table (Updated for v0.6.0)"""
         lines = []
-        
+
         # Add table-level comments
         if table.metadata:
             for comment in table.metadata:
                 lines.append(f"// {comment}")
-        
+
         # Add table-level constraints (UNIQUE, INDEX on multiple columns)
         if table.constraint_comments:
             for comment in table.constraint_comments:
                 lines.append(f"// {comment}")
-        
-        # Interface declaration
-        lines.append(f"interface {table.name} {{")
+
+        # Interface declaration - quote name if contains special characters
+        table_name = table.name
+        if not re.match(r'^\w+$', table_name):
+            table_name = f"`{table_name}`"  # Quote non-standard identifiers
+        lines.append(f"interface {table_name} {{")
         
         # Sort columns: PK first, then regular columns, timestamps last
         sorted_columns = self.sort_columns(table.columns)
@@ -272,17 +289,21 @@ class TSSNGenerator:
         return '\n'.join(lines)
     
     def generate_column(self, column: Column) -> str:
-        """Generate TSSN for a single column"""
-        # Build column name with nullable marker
+        """Generate TSSN for a single column (Updated for v0.6.0)"""
+        # Build column name - quote if contains special characters
         name = column.name
+        if not re.match(r'^\w+$', name):
+            name = f"`{name}`"  # Quote non-standard identifiers
         if column.nullable:
             name += '?'
-        
-        # Build type with optional length
+
+        # Build type with optional length and array suffix
         type_str = column.type
         if column.length:
             type_str += f"({column.length})"
-        
+        if getattr(column, 'is_array', False):  # New in v0.6.0
+            type_str += "[]"
+
         # Build definition part
         definition = f"{name}: {type_str};"
         
@@ -431,30 +452,40 @@ class TypeMapper:
     
     def map_type(self, sql_type: str, length: int = None) -> tuple:
         """
-        Map SQL type to TSSN semantic type
-        
+        Map SQL type to TSSN semantic type (Updated for v0.6.0)
+
         Args:
             sql_type: Database-specific type name
             length: Optional length/precision
-            
+
         Returns:
-            Tuple of (tssn_type, tssn_length)
+            Tuple of (tssn_type, tssn_length, is_array)
         """
         # Normalize type name
         sql_type = sql_type.lower()
-        
+
+        # --- NEW in v0.6.0: Detect PostgreSQL array types ---
+        is_array = False
+        if sql_type.endswith('[]'):
+            is_array = True
+            sql_type = sql_type[:-2]  # Remove [] suffix
+        elif sql_type.startswith('_'):
+            # PostgreSQL internal array notation (e.g., _int4, _text)
+            is_array = True
+            sql_type = sql_type[1:]  # Remove _ prefix
+
         # Special case: MySQL tinyint(1) is boolean
         if self.database_type == 'mysql' and sql_type == 'tinyint' and length == 1:
-            return ('boolean', None)
-        
+            return ('boolean', None, is_array)
+
         # Look up in mapping table
         tssn_type = self.type_map.get(sql_type, 'string')
-        
+
         # Determine if length should be preserved
         preserve_length = sql_type in ['varchar', 'nvarchar', 'char', 'nchar']
         tssn_length = length if preserve_length else None
-        
-        return (tssn_type, tssn_length)
+
+        return (tssn_type, tssn_length, is_array)
 
 
 ## Database Introspection (Example for PostgreSQL)
@@ -504,15 +535,16 @@ class DatabaseIntrospector:
         
         for row in self.cursor.fetchall():
             col_name, data_type, length, is_nullable, default = row
-            
-            # Map type
-            tssn_type, tssn_length = mapper.map_type(data_type, length)
-            
+
+            # Map type (Updated for v0.6.0 - now returns 3 values)
+            tssn_type, tssn_length, is_array = mapper.map_type(data_type, length)
+
             column = Column(
                 name=col_name,
                 type=tssn_type,
                 length=tssn_length,
                 nullable=(is_nullable == 'YES'),
+                is_array=is_array,  # New in v0.6.0
                 constraints=[]
             )
             
@@ -620,13 +652,14 @@ class Table:
         self.constraint_comments = []
 
 class Column:
-    def __init__(self, name: str, type: str, length: int = None, 
-                 nullable: bool = True, constraints: list = None, 
-                 comment: str = None):
+    def __init__(self, name: str, type: str, length: int = None,
+                 nullable: bool = True, is_array: bool = False,  # New in v0.6.0
+                 constraints: list = None, comment: str = None):
         self.name = name
         self.type = type
         self.length = length
         self.nullable = nullable
+        self.is_array = is_array  # New in v0.6.0: True for array types like string[]
         self.constraints = constraints or []
         self.comment = comment
 
@@ -649,3 +682,15 @@ This is pseudocode for reference. Real implementations should:
 4. Optimize for performance
 5. Follow language-specific best practices
 6. Include proper documentation
+
+### v0.6.0 Implementation Notes
+
+This pseudocode has been updated for TSSN v0.6.0 with support for:
+
+- **Quoted Identifiers**: Backtick syntax for identifiers with spaces/special characters
+  - Parser: Uses regex alternation `(?:\`([^\`]+)\`|(\w+))` to match both forms
+  - Generator: Auto-quotes names that don't match `^\w+$`
+- **Array Types**: The `[]` suffix for PostgreSQL array columns
+  - Parser: Extended type regex to capture optional `(\[\])?` suffix
+  - Generator: Appends `[]` when `is_array=True`
+  - TypeMapper: Detects PostgreSQL array notation (`text[]` or `_text`)
