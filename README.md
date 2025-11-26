@@ -107,37 +107,11 @@ interface UserResponse {
 
 ## 📦 Implementations
 
-### Official Implementations
+*No reference implementations yet — TSSN is currently a draft specification.*
 
-- **Python**: [tssn-python](https://github.com/nemekath/tssn-python) - Parser and generator
-- **TypeScript**: [tssn-ts](https://github.com/nemekath/tssn-ts) - TypeScript/JavaScript library
-- **Go**: [tssn-go](https://github.com/nemekath/tssn-go) - Go implementation
-
-### Community Implementations
-
-Welcome
-
-*Want to add your implementation? [Submit a PR](CONTRIBUTING.md)!*
+Interested in building one? See [CONTRIBUTING.md](CONTRIBUTING.md) and [IMPLEMENTATION.md](IMPLEMENTATION.md) for parser/generator guidelines.
 
 ## 🔧 Integration Examples
-
-### SQL Schema Introspection
-
-```python
-# Python example using tssn-python
-from tssn import SchemaGenerator
-
-generator = SchemaGenerator(connection)
-schema = generator.generate_from_database("mydb")
-
-print(schema)
-# Output:
-# interface Users {
-#   id: int;              // PRIMARY KEY
-#   email: string(255);   // UNIQUE
-#   ...
-# }
-```
 
 ### MCP Server Integration
 

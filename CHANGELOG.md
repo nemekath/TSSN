@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Section 2.6: Vendor-Specific Type Handling** - Guidelines for mapping database-specific types to TSSN base types
+  - Mapping principle for vendor-agnostic type handling
+  - Common vendor type mappings table (SQL Server, PostgreSQL)
+  - `@format` annotation pattern for preserving semantic context
+  - Implementation guidance for generators and parsers
+- **Section 1.3.1: Primary Use Case** - Clarified that TSSN is optimized for read query (SELECT) generation
+- **Section 1.3.2: Positioning** - Added guidance on when to use TSSN vs. alternatives (GraphQL, ORM schemas, DDL)
+
+### Changed
+- **README.md** - Removed fictional implementation references; TSSN is draft-only with no reference implementations yet
+
 ### Under Discussion
 - Multi-schema support with explicit schema prefixes
 - View definitions alongside tables

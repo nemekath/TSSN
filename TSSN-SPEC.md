@@ -35,6 +35,34 @@ Unlike lossless data serialization formats (JSON for data interchange, Protocol 
 
 TSSN does not replace SQL DDL or migration tools, but complements them as a token-efficient communication layer.
 
+#### 1.3.1 Primary Use Case: Read Query Generation
+
+TSSN is optimized for enabling LLMs to write **read queries** (SELECT statements). The schema information preserved by TSSN is specifically chosen to support:
+
+- Correct table and column references
+- Proper JOIN construction via foreign key relationships
+- Appropriate WHERE clause syntax based on column types
+- Understanding of nullability for IS NULL / IS NOT NULL conditions
+
+TSSN intentionally discards information irrelevant to read queries (storage engines, precise decimal scales, index implementations) to maximize token efficiency.
+
+#### 1.3.2 Positioning: When to Use TSSN
+
+TSSN fills a specific niche in the schema representation landscape:
+
+| Environment | Recommended Approach |
+|-------------|---------------------|
+| GraphQL API available | Use GraphQL SDL — already optimized for typed queries |
+| Modern ORM (Prisma, etc.) | Use native schema format — tooling already exists |
+| Legacy SQL without API layer | **Use TSSN** — lightweight, no infrastructure changes |
+| Token-constrained LLM context | **Use TSSN** — maximum information density |
+| DDL generation / migrations | Use SQL DDL — TSSN is lossy by design |
+
+TSSN is particularly valuable for:
+- Enterprise systems with large legacy databases
+- Environments where adding GraphQL infrastructure is impractical
+- MCP (Model Context Protocol) servers providing database access to LLMs
+
 ## 2. Syntax Specification
 
 ### 2.1 Core Structure
@@ -136,6 +164,52 @@ interface Memberships {
   status: string(20);
 }
 ```
+
+### 2.6 Vendor-Specific Type Handling
+
+TSSN maintains database-agnosticism by mapping vendor-specific types to semantic equivalents from the core type system. This ensures parsers remain lightweight and implementations stay interoperable across different database systems.
+
+#### 2.6.1 Mapping Principle
+
+When a database-specific type has no direct TSSN equivalent, map it to the closest semantic base type. Use `@format` annotations to preserve additional context when needed.
+
+#### 2.6.2 Common Vendor Type Mappings
+
+| Vendor Type | Database | TSSN Type | Annotation | Rationale |
+|-------------|----------|-----------|------------|-----------|
+| `XML` | SQL Server, PostgreSQL | `text` | `@format: xml` | Structured text, potentially large |
+| `GEOGRAPHY` | SQL Server | `string` | `@format: wkt` | WKT representation is token-efficient |
+| `GEOMETRY` | SQL Server, PostGIS | `string` | `@format: wkt` | WKT representation is universal |
+| `HSTORE` | PostgreSQL | `json` | — | Key-value maps naturally to JSON |
+| `JSONB` | PostgreSQL | `json` | — | Binary JSON is semantically JSON |
+| `INTERVAL` | PostgreSQL | `string` | `@format: interval` | ISO 8601 duration format |
+| `CIDR`, `INET` | PostgreSQL | `string` | `@format: cidr` | Network addresses as strings |
+| `MONEY` | SQL Server | `decimal` | — | Currency is a decimal value |
+| `HIERARCHYID` | SQL Server | `string` | `@format: hierarchyid` | Path representation |
+| `ROWVERSION` | SQL Server | `blob` | — | Binary timestamp |
+
+#### 2.6.3 Format Annotation Patterns
+
+When mapping to a base type loses semantic information, the `@format` annotation preserves intent:
+
+```typescript
+interface GeoData {
+  id: int;                    // PRIMARY KEY
+  location: string;           // @format: wkt, POINT/POLYGON data
+  boundary: string;           // @format: wkt
+  metadata: text;             // @format: xml
+  ip_range: string;           // @format: cidr
+}
+```
+
+#### 2.6.4 Implementation Guidance
+
+1. **Generators** SHOULD map vendor types to TSSN base types according to this table
+2. **Generators** MAY include `@format` annotations for round-trip fidelity
+3. **Parsers** MUST accept any base type regardless of `@format` annotation
+4. **Parsers** MAY use `@format` hints for validation or transformation
+
+**Note**: The `@format` annotation is informational. TSSN parsers are not required to validate format compliance—this responsibility lies with the consuming application.
 
 ## 3. Extended Annotations
 
