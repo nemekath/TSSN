@@ -319,7 +319,6 @@ Breaking changes require:
 ## 🏆 Recognition
 
 Contributors will be:
-- Listed in the CONTRIBUTORS.md file
 - Credited in release notes for their contributions
 - Mentioned in relevant documentation
 
@@ -330,7 +329,8 @@ Significant contributions may result in:
 ## 📚 Resources
 
 - [TSSN Specification](TSSN-SPEC.md)
-- [Example Implementations](examples/)
+- [Examples](EXAMPLES.md)
+- [Implementation Guide](IMPLEMENTATION.md)
 - [Discussion Forum](https://github.com/nemekath/TSSN/discussions)
 - [Issue Tracker](https://github.com/nemekath/TSSN/issues)
 

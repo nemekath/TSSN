@@ -649,5 +649,3 @@ This is pseudocode for reference. Real implementations should:
 4. Optimize for performance
 5. Follow language-specific best practices
 6. Include proper documentation
-
-See language-specific implementations for production-ready code.
