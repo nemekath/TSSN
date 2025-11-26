@@ -1,6 +1,6 @@
 # TypeScript-Style Schema Notation (TSSN)
 
-**Version:** 0.6.0
+**Version:** 0.7.0
 **Status:** Draft Specification
 **Date:** 2025-11-26
 **Authors:** Benjamin Zimmer
@@ -151,6 +151,67 @@ WHERE 'javascript' = ANY(tags)      -- Correct array operation
 | `json[]` | `JSONB[]` | — | — |
 
 **Note**: Arrays are primarily a PostgreSQL feature. For databases without native array support, this notation indicates the column stores serialized array data (typically as JSON).
+
+#### 2.2.6 Literal Union Types
+
+For columns with a fixed set of allowed values (enums), TSSN supports TypeScript-style literal union types. This provides LLMs with exact valid values, reducing hallucination in WHERE clauses:
+
+```typescript
+interface Orders {
+  id: int;                              // PRIMARY KEY
+  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
+  priority: 1 | 2 | 3;                  // Numeric unions also supported
+  payment_method?: 'card' | 'bank' | 'crypto';  // Nullable union
+}
+```
+
+**LLM Query Generation Impact:**
+
+Without literal unions, an LLM might hallucinate invalid values:
+```sql
+WHERE status = 'active'              -- Invalid! Not in allowed values
+```
+
+With literal unions, the LLM knows exact options:
+```sql
+WHERE status = 'pending'             -- Valid, from union type
+WHERE status IN ('shipped', 'delivered')  -- Valid combination
+```
+
+**When to Use Literal Unions:**
+
+| Scenario | Recommendation |
+|----------|----------------|
+| ≤10 distinct values | Use literal union |
+| >10 values | Use `string` + `@enum` annotation |
+| Dynamic/external values | Use base type with comment |
+
+**Examples:**
+
+```typescript
+// Good: Small, fixed set
+status: 'draft' | 'published' | 'archived';
+
+// Good: Numeric enum
+priority: 1 | 2 | 3;
+
+// Fallback: Large enum (too many values for inline)
+country_code: string(2);    // @enum: ISO 3166-1 alpha-2
+
+// Fallback: Dynamic values
+category_id: int;           // FK -> Categories(id)
+```
+
+**Database Mapping:**
+
+Literal unions map to the underlying base type with a CHECK constraint:
+
+| TSSN | SQL Equivalent |
+|------|----------------|
+| `'a' \| 'b' \| 'c'` | `VARCHAR CHECK (col IN ('a','b','c'))` |
+| `1 \| 2 \| 3` | `INT CHECK (col IN (1,2,3))` |
+
+**Note**: The primary purpose of literal unions is semantic precision for LLMs, not DDL generation. Implementations may choose how to represent these in generated SQL.
 
 ### 2.3 Nullability
 
@@ -635,16 +696,22 @@ TSSN is designed to be extended by the community. Proposed extensions should mai
 ```ebnf
 schema          = interface+
 interface       = ws comment* "interface" ws identifier ws "{" ws column* ws "}"
-column          = ws identifier nullable? ws ":" ws type array? ws ";" comment? newline
+column          = ws identifier nullable? ws ":" ws type_expr ws ";" comment? newline
 nullable        = "?"
+type_expr       = union_type | simple_type
+union_type      = literal ( ws "|" ws literal )+
+literal         = string_lit | number_lit
+string_lit      = "'" ( char_no_sq )* "'"
+number_lit      = "-"? digits
+simple_type     = base_type ( "(" digits ")" )? array?
 array           = "[]"
-type            = base_type ( "(" digits ")" )?
 base_type       = identifier
 comment         = "//" char* newline
 identifier      = simple_id | quoted_id
 simple_id       = letter ( letter | digit | "_" )*
 quoted_id       = "`" ( char_no_bt | "``" )* "`"
 char_no_bt      = (* any character except backtick *)
+char_no_sq      = (* any character except single quote *)
 letter          = "A" | "B" | ... | "Z" | "a" | "b" | ... | "z"
 digit           = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 digits          = digit+
@@ -652,6 +719,11 @@ char            = (* any character except newline *)
 ws              = ( " " | "\t" | newline )*
 newline         = "\n" | "\r\n" | "\r"
 ```
+
+**Key additions in v0.7.0:**
+- `union_type` production: Literal unions like `'a' | 'b' | 'c'` or `1 | 2 | 3`
+- `literal` production: String literals (single-quoted) or numeric literals
+- `type_expr` now branches between union types and simple types
 
 **Key additions in v0.6.0:**
 - `array` production: The `[]` suffix for array types

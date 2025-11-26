@@ -12,6 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Temporal table syntax for history/versioning
 - Graph database relationship syntax
 
+## [0.7.0] - 2025-11-26 (Draft)
+
+### Added
+- **Section 2.2.6: Literal Union Types** - TypeScript-style unions for enum columns
+  - Syntax: `status: 'pending' | 'shipped' | 'delivered';`
+  - Numeric unions: `priority: 1 | 2 | 3;`
+  - Nullable unions: `payment?: 'card' | 'bank';`
+  - Reduces LLM hallucination by providing exact valid values
+  - Recommended for ≤10 values; fallback to `string` + `@enum` for larger sets
+
+### Changed
+- **EBNF Grammar** - Added `union_type`, `literal`, `string_lit`, `number_lit` productions
+- **EXAMPLES.md** - Added Section 4: Literal Union Types with query examples
+
+### Rationale
+Literal unions transform CHECK constraints from comments (metadata) into types (structure). This improves LLM query generation by making valid values explicit rather than implicit.
+
 ## [0.6.0] - 2025-11-26 (Draft)
 
 ### Added

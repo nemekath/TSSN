@@ -102,10 +102,10 @@ class TSSNParser:
     
     def parse_column(self, line: str) -> Column:
         """
-        Parse column definition (Updated for v0.6.0)
+        Parse column definition (Updated for v0.7.0)
 
-        Format: identifier?: type(length)[]; // comment
-        Supports: quoted identifiers, array types
+        Format: identifier?: type(length)[] | 'lit1' | 'lit2'; // comment
+        Supports: quoted identifiers, array types, literal unions
         """
         # Remove trailing semicolon
         line = line.rstrip(';').strip()
@@ -115,7 +115,7 @@ class TSSNParser:
         definition = parts[0].strip()
         comment = parts[1].strip() if len(parts) > 1 else None
 
-        # --- FIX 1: Regex for quoted identifiers (v0.6.0) ---
+        # --- Regex for quoted identifiers ---
         # Group 1: Quoted name (without backticks)
         # Group 2: Simple name
         # Group 3: Nullable marker (?)
@@ -131,7 +131,22 @@ class TSSNParser:
         nullable = bool(match.group(3))
         type_part = match.group(4).strip()
 
-        # --- FIX 2: Regex for array types (v0.6.0) ---
+        # --- NEW in v0.7.0: Check for literal union types ---
+        # Union types contain | and literals ('string' or numbers)
+        union_pattern = r"^('[^']*'|\d+)(\s*\|\s*('[^']*'|\d+))+$"
+        if re.match(union_pattern, type_part):
+            # Parse union type
+            union_values = self.parse_union_type(type_part)
+            return Column(
+                name=column_name,
+                type='union',  # Special type marker
+                nullable=nullable,
+                union_values=union_values,  # New in v0.7.0
+                constraints=[],
+                comment=comment
+            )
+
+        # --- Standard type parsing (v0.6.0) ---
         # Group 1: Base type
         # Group 2: Length (optional)
         # Group 3: Array suffix (optional)
@@ -143,7 +158,7 @@ class TSSNParser:
 
         data_type = type_match.group(1)
         length = int(type_match.group(2)) if type_match.group(2) else None
-        is_array = bool(type_match.group(3))  # New in v0.6.0
+        is_array = bool(type_match.group(3))
 
         # Parse constraints from comment
         constraints = self.parse_constraints(comment) if comment else []
@@ -153,10 +168,28 @@ class TSSNParser:
             type=data_type,
             length=length,
             nullable=nullable,
-            is_array=is_array,  # New in v0.6.0
+            is_array=is_array,
             constraints=constraints,
             comment=comment
         )
+
+    def parse_union_type(self, type_part: str) -> list:
+        """
+        Parse literal union type (New in v0.7.0)
+
+        Input: "'pending' | 'shipped' | 'delivered'" or "1 | 2 | 3"
+        Output: ['pending', 'shipped', 'delivered'] or [1, 2, 3]
+        """
+        values = []
+        for part in type_part.split('|'):
+            part = part.strip()
+            if part.startswith("'") and part.endswith("'"):
+                # String literal
+                values.append(part[1:-1])
+            else:
+                # Numeric literal
+                values.append(int(part))
+        return values
     
     def parse_constraints(self, comment: str) -> list:
         """Extract structured constraints from comment text"""
@@ -289,7 +322,7 @@ class TSSNGenerator:
         return '\n'.join(lines)
     
     def generate_column(self, column: Column) -> str:
-        """Generate TSSN for a single column (Updated for v0.6.0)"""
+        """Generate TSSN for a single column (Updated for v0.7.0)"""
         # Build column name - quote if contains special characters
         name = column.name
         if not re.match(r'^\w+$', name):
@@ -297,12 +330,16 @@ class TSSNGenerator:
         if column.nullable:
             name += '?'
 
-        # Build type with optional length and array suffix
-        type_str = column.type
-        if column.length:
-            type_str += f"({column.length})"
-        if getattr(column, 'is_array', False):  # New in v0.6.0
-            type_str += "[]"
+        # --- NEW in v0.7.0: Handle union types ---
+        if column.type == 'union' and column.union_values:
+            type_str = self.generate_union_type(column.union_values)
+        else:
+            # Build type with optional length and array suffix
+            type_str = column.type
+            if column.length:
+                type_str += f"({column.length})"
+            if getattr(column, 'is_array', False):
+                type_str += "[]"
 
         # Build definition part
         definition = f"{name}: {type_str};"
@@ -322,7 +359,22 @@ class TSSNGenerator:
             definition += f" // {comment}"
         
         return definition
-    
+
+    def generate_union_type(self, values: list) -> str:
+        """
+        Generate literal union type string (New in v0.7.0)
+
+        Input: ['pending', 'shipped'] or [1, 2, 3]
+        Output: "'pending' | 'shipped'" or "1 | 2 | 3"
+        """
+        parts = []
+        for val in values:
+            if isinstance(val, str):
+                parts.append(f"'{val}'")
+            else:
+                parts.append(str(val))
+        return ' | '.join(parts)
+
     def generate_constraint_comment(self, column: Column) -> str:
         """Generate comment text from column constraints"""
         parts = []
@@ -667,13 +719,15 @@ class Table:
 
 class Column:
     def __init__(self, name: str, type: str, length: int = None,
-                 nullable: bool = True, is_array: bool = False,  # New in v0.6.0
+                 nullable: bool = True, is_array: bool = False,
+                 union_values: list = None,  # New in v0.7.0
                  constraints: list = None, comment: str = None):
         self.name = name
         self.type = type
         self.length = length
         self.nullable = nullable
-        self.is_array = is_array  # New in v0.6.0: True for array types like string[]
+        self.is_array = is_array      # v0.6.0: True for array types like string[]
+        self.union_values = union_values  # v0.7.0: ['a','b','c'] or [1,2,3]
         self.constraints = constraints or []
         self.comment = comment
 
@@ -697,9 +751,17 @@ This is pseudocode for reference. Real implementations should:
 5. Follow language-specific best practices
 6. Include proper documentation
 
-### v0.6.0 Implementation Notes
+### v0.7.0 Implementation Notes
 
-This pseudocode has been updated for TSSN v0.6.0 with support for:
+This pseudocode has been updated for TSSN v0.7.0 with support for:
+
+- **Literal Union Types**: TypeScript-style unions for enum columns
+  - Parser: `parse_union_type()` extracts values from `'a' | 'b' | 'c'` or `1 | 2 | 3`
+  - Generator: `generate_union_type()` formats union values with proper quoting
+  - Column class: New `union_values` field stores parsed literals
+  - Detection: Regex `^('[^']*'|\d+)(\s*\|\s*('[^']*'|\d+))+$` identifies unions
+
+### v0.6.0 Implementation Notes
 
 - **Quoted Identifiers**: Backtick syntax for identifiers with spaces/special characters
   - Parser: Uses regex alternation `(?:\`([^\`]+)\`|(\w+))` to match both forms

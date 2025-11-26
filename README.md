@@ -1,7 +1,7 @@
 # TSSN - TypeScript-Style Schema Notation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.6.0--draft-orange.svg)](https://github.com/nemekath/TSSN)
+[![Version](https://img.shields.io/badge/version-0.7.0--draft-orange.svg)](https://github.com/nemekath/TSSN)
 
 > A token-efficient, human-readable format for representing database schemas
 

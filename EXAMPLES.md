@@ -7,14 +7,15 @@ Focused examples for each specification feature. For the complete specification,
 1. [Core Syntax](#1-core-syntax)
 2. [Data Types](#2-data-types)
 3. [Array Types](#3-array-types)
-4. [Nullability](#4-nullability)
-5. [Constraints](#5-constraints)
-6. [Multi-Column Constraints](#6-multi-column-constraints)
-7. [Vendor-Specific Types](#7-vendor-specific-types)
-8. [Schema Namespaces](#8-schema-namespaces)
-9. [Quoted Identifiers](#9-quoted-identifiers)
-10. [Domain Annotations](#10-domain-annotations)
-11. [Complete Example](#11-complete-example)
+4. [Literal Union Types](#4-literal-union-types)
+5. [Nullability](#5-nullability)
+6. [Constraints](#6-constraints)
+7. [Multi-Column Constraints](#7-multi-column-constraints)
+8. [Vendor-Specific Types](#8-vendor-specific-types)
+9. [Schema Namespaces](#9-schema-namespaces)
+10. [Quoted Identifiers](#10-quoted-identifiers)
+11. [Domain Annotations](#11-domain-annotations)
+12. [Complete Example](#12-complete-example)
 
 ---
 
@@ -89,7 +90,31 @@ WHERE tags @> ARRAY['javascript', 'typescript']
 
 ---
 
-## 4. Nullability
+## 4. Literal Union Types
+
+TypeScript-style unions for enum columns (Section 2.2.6):
+
+```typescript
+interface Orders {
+  id: int;              // PRIMARY KEY
+  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
+  priority: 1 | 2 | 3;
+  payment?: 'card' | 'bank' | 'crypto';  // Nullable union
+}
+```
+
+This helps LLMs generate correct WHERE clauses without hallucinating invalid values:
+
+```sql
+-- LLM knows exact valid options
+WHERE status = 'shipped'
+WHERE status IN ('pending', 'shipped')
+WHERE priority = 1
+```
+
+---
+
+## 5. Nullability
 
 The `?` suffix indicates nullable columns (Section 2.3):
 
@@ -104,7 +129,7 @@ interface Users {
 
 ---
 
-## 5. Constraints
+## 6. Constraints
 
 Inline comment patterns for constraints (Section 2.4):
 
@@ -131,7 +156,7 @@ interface OrderItems {
 
 ---
 
-## 6. Multi-Column Constraints
+## 7. Multi-Column Constraints
 
 Interface-level comments for composite constraints (Section 2.5):
 
@@ -160,7 +185,7 @@ interface PostTags {
 
 ---
 
-## 7. Vendor-Specific Types
+## 8. Vendor-Specific Types
 
 Using `@format` annotation for vendor types (Section 2.6):
 
@@ -176,7 +201,7 @@ interface GeoData {
 
 ---
 
-## 8. Schema Namespaces
+## 9. Schema Namespaces
 
 Using `@schema` annotation for multi-schema databases (Section 2.7):
 
@@ -204,7 +229,7 @@ interface Orders {
 
 ---
 
-## 9. Quoted Identifiers
+## 10. Quoted Identifiers
 
 Backtick quoting for legacy identifiers with spaces or special characters (Section 2.8):
 
@@ -233,7 +258,7 @@ SELECT "Order ID", "Product Name" FROM "Order Details"
 
 ---
 
-## 10. Domain Annotations
+## 11. Domain Annotations
 
 Custom annotations for metadata (Section 3):
 
@@ -250,7 +275,7 @@ interface Users {
 
 ---
 
-## 11. Complete Example
+## 12. Complete Example
 
 A realistic schema combining all features:
 
