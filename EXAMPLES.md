@@ -6,13 +6,15 @@ Focused examples for each specification feature. For the complete specification,
 
 1. [Core Syntax](#1-core-syntax)
 2. [Data Types](#2-data-types)
-3. [Nullability](#3-nullability)
-4. [Constraints](#4-constraints)
-5. [Multi-Column Constraints](#5-multi-column-constraints)
-6. [Vendor-Specific Types](#6-vendor-specific-types)
-7. [Schema Namespaces](#7-schema-namespaces)
-8. [Domain Annotations](#8-domain-annotations)
-9. [Complete Example](#9-complete-example)
+3. [Array Types](#3-array-types)
+4. [Nullability](#4-nullability)
+5. [Constraints](#5-constraints)
+6. [Multi-Column Constraints](#6-multi-column-constraints)
+7. [Vendor-Specific Types](#7-vendor-specific-types)
+8. [Schema Namespaces](#8-schema-namespaces)
+9. [Quoted Identifiers](#9-quoted-identifiers)
+10. [Domain Annotations](#10-domain-annotations)
+11. [Complete Example](#11-complete-example)
 
 ---
 
@@ -61,7 +63,33 @@ interface TypeShowcase {
 
 ---
 
-## 3. Nullability
+## 3. Array Types
+
+The `[]` suffix for array columns (Section 2.2.5):
+
+```typescript
+interface Articles {
+  id: int;              // PRIMARY KEY
+  title: string(200);
+  tags: string[];       // PostgreSQL text[], use ANY() or @> operators
+  scores: int[];        // PostgreSQL integer[]
+  metadata?: json[];    // Optional array of JSON objects
+}
+```
+
+This helps LLMs generate correct array operations:
+
+```sql
+-- Find articles with 'javascript' tag
+WHERE 'javascript' = ANY(tags)
+
+-- Find articles with multiple tags
+WHERE tags @> ARRAY['javascript', 'typescript']
+```
+
+---
+
+## 4. Nullability
 
 The `?` suffix indicates nullable columns (Section 2.3):
 
@@ -76,7 +104,7 @@ interface Users {
 
 ---
 
-## 4. Constraints
+## 5. Constraints
 
 Inline comment patterns for constraints (Section 2.4):
 
@@ -103,7 +131,7 @@ interface OrderItems {
 
 ---
 
-## 5. Multi-Column Constraints
+## 6. Multi-Column Constraints
 
 Interface-level comments for composite constraints (Section 2.5):
 
@@ -132,7 +160,7 @@ interface PostTags {
 
 ---
 
-## 6. Vendor-Specific Types
+## 7. Vendor-Specific Types
 
 Using `@format` annotation for vendor types (Section 2.6):
 
@@ -148,7 +176,7 @@ interface GeoData {
 
 ---
 
-## 7. Schema Namespaces
+## 8. Schema Namespaces
 
 Using `@schema` annotation for multi-schema databases (Section 2.7):
 
@@ -176,7 +204,36 @@ interface Orders {
 
 ---
 
-## 8. Domain Annotations
+## 9. Quoted Identifiers
+
+Backtick quoting for legacy identifiers with spaces or special characters (Section 2.8):
+
+```typescript
+interface `Order Details` {
+  `Order ID`: int;            // PRIMARY KEY
+  `Product Name`: string(100);
+  `Unit Price`: decimal;
+  `Qty Ordered`: int;
+  `Ship Date`?: datetime;
+}
+```
+
+This signals to LLMs that database-specific escaping is required:
+
+```sql
+-- SQL Server
+SELECT [Order ID], [Product Name] FROM [Order Details]
+
+-- MySQL
+SELECT `Order ID`, `Product Name` FROM `Order Details`
+
+-- PostgreSQL
+SELECT "Order ID", "Product Name" FROM "Order Details"
+```
+
+---
+
+## 10. Domain Annotations
 
 Custom annotations for metadata (Section 3):
 
@@ -193,7 +250,7 @@ interface Users {
 
 ---
 
-## 9. Complete Example
+## 11. Complete Example
 
 A realistic schema combining all features:
 
@@ -249,3 +306,5 @@ This example demonstrates:
 - Referential actions (ON DELETE CASCADE)
 - Multi-column constraints at interface level
 - Common data types (int, string, datetime, json, text)
+
+For array types and quoted identifiers, see sections 3 and 9 above.

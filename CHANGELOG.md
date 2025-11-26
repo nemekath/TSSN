@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Under Discussion
+- View definitions alongside tables
+- Temporal table syntax for history/versioning
+- Graph database relationship syntax
+
+## [0.6.0] - 2025-11-26 (Draft)
+
 ### Added
+- **Section 2.2.5: Array Types** - The `[]` suffix for array columns (PostgreSQL arrays)
+  - Semantic hint for LLMs to generate correct array operations (ANY, UNNEST, @>)
+  - Database mapping table showing PostgreSQL array support
+  - LLM query generation impact examples
+- **Section 2.8: Quoted Identifiers** - Backtick quoting for legacy identifiers
+  - Support for identifiers with spaces, reserved words, or special characters
+  - Escaping rules (double backticks for literal backticks)
+  - Database-specific escaping guidance (SQL Server brackets, MySQL backticks, PostgreSQL quotes)
 - **Section 2.6: Vendor-Specific Type Handling** - Guidelines for mapping database-specific types to TSSN base types
   - Mapping principle for vendor-agnostic type handling
   - Common vendor type mappings table (SQL Server, PostgreSQL)
@@ -20,12 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cross-schema foreign key references
 
 ### Changed
+- **EBNF Grammar** - Updated to include array suffix (`[]`) and quoted identifiers (backticks)
+- **Appendix B** - Added PostgreSQL array type mappings (TEXT[], INTEGER[], JSONB[])
 - **README.md** - Removed fictional implementation references; TSSN is draft-only with no reference implementations yet
-
-### Under Discussion
-- View definitions alongside tables
-- Temporal table syntax for history/versioning
-- Graph database relationship syntax
+- **EXAMPLES.md** - Added examples for array types (Section 3) and quoted identifiers (Section 9)
 
 ## [0.5.0] - 2025-11-20 (Draft)
 

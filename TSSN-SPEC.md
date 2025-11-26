@@ -1,8 +1,8 @@
 # TypeScript-Style Schema Notation (TSSN)
 
-**Version:** 0.5.0
+**Version:** 0.6.0
 **Status:** Draft Specification
-**Date:** 2025-11-20
+**Date:** 2025-11-26
 **Authors:** Benjamin Zimmer
 **License:** MIT
 
@@ -115,6 +115,42 @@ TSSN uses abstract type categories rather than database-specific types. These ca
 | `blob` | Binary data | VARBINARY, BLOB, IMAGE |
 | `uuid` | Universally unique identifier | UUID, UNIQUEIDENTIFIER |
 | `json` | JSON data | JSON, JSONB |
+
+#### 2.2.5 Array Types
+
+The `[]` suffix indicates array/list columns. This semantic hint helps LLMs generate appropriate array operations (ANY, UNNEST, array containment operators) instead of scalar comparisons:
+
+```typescript
+interface Articles {
+  id: int;                    // PRIMARY KEY
+  title: string(200);
+  tags: string[];             // PostgreSQL text[], use ANY() or @> operators
+  scores: int[];              // PostgreSQL integer[]
+  metadata?: json[];          // Array of JSON objects
+}
+```
+
+**LLM Query Generation Impact:**
+
+Without array hint, an LLM might generate:
+```sql
+WHERE tags = 'javascript'           -- Incorrect for arrays
+```
+
+With array hint, the LLM generates:
+```sql
+WHERE 'javascript' = ANY(tags)      -- Correct array operation
+```
+
+**Database Mapping:**
+
+| TSSN | PostgreSQL | SQL Server | MySQL |
+|------|------------|------------|-------|
+| `string[]` | `TEXT[]` | — | — |
+| `int[]` | `INTEGER[]` | — | — |
+| `json[]` | `JSONB[]` | — | — |
+
+**Note**: Arrays are primarily a PostgreSQL feature. For databases without native array support, this notation indicates the column stores serialized array data (typically as JSON).
 
 ### 2.3 Nullability
 
@@ -257,6 +293,53 @@ SELECT o.*, u.email
 FROM public.orders o
 JOIN auth.users u ON o.user_id = u.id
 ```
+
+### 2.8 Quoted Identifiers
+
+Legacy databases often contain identifiers with spaces, reserved words, or special characters. TSSN uses backtick quoting to represent these "dirty" identifiers, enabling LLMs to generate correctly escaped queries:
+
+```typescript
+interface `Order Details` {
+  `Order ID`: int;            // PRIMARY KEY
+  `Product Name`: string(100);
+  `Unit Price`: decimal;
+  `Qty Ordered`: int;
+}
+```
+
+**LLM Query Generation Impact:**
+
+The quoted identifiers signal to the LLM that escaping is required:
+
+```sql
+-- SQL Server
+SELECT [Order ID], [Product Name] FROM [Order Details]
+
+-- MySQL
+SELECT `Order ID`, `Product Name` FROM `Order Details`
+
+-- PostgreSQL
+SELECT "Order ID", "Product Name" FROM "Order Details"
+```
+
+#### 2.8.1 Escaping Rules
+
+- Backticks wrap identifiers containing spaces, reserved words, or special characters
+- Literal backticks within identifiers are escaped by doubling: ``` `` ```
+- Standard identifiers (letters, digits, underscores) do not require quoting
+
+#### 2.8.2 When to Use Quoted Identifiers
+
+| Identifier | Requires Quoting | Reason |
+|------------|------------------|--------|
+| `OrderDetails` | No | Valid identifier |
+| `order_details` | No | Valid identifier |
+| `Order Details` | Yes | Contains space |
+| `Order-Details` | Yes | Contains hyphen |
+| `Order` | Maybe | Reserved word (context-dependent) |
+| `123Orders` | Yes | Starts with digit |
+
+**Note**: Quoted identifiers indicate a schema design that predates modern naming conventions. While TSSN supports them for compatibility, new schemas should prefer snake_case or PascalCase identifiers.
 
 ## 3. Extended Annotations
 
@@ -552,11 +635,16 @@ TSSN is designed to be extended by the community. Proposed extensions should mai
 ```ebnf
 schema          = interface+
 interface       = ws comment* "interface" ws identifier ws "{" ws column* ws "}"
-column          = ws identifier nullable? ws ":" ws type ws ";" comment? newline
+column          = ws identifier nullable? ws ":" ws type array? ws ";" comment? newline
 nullable        = "?"
-type            = identifier ( "(" digits ")" )?
+array           = "[]"
+type            = base_type ( "(" digits ")" )?
+base_type       = identifier
 comment         = "//" char* newline
-identifier      = letter ( letter | digit | "_" )*
+identifier      = simple_id | quoted_id
+simple_id       = letter ( letter | digit | "_" )*
+quoted_id       = "`" ( char_no_bt | "``" )* "`"
+char_no_bt      = (* any character except backtick *)
 letter          = "A" | "B" | ... | "Z" | "a" | "b" | ... | "z"
 digit           = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 digits          = digit+
@@ -564,6 +652,11 @@ char            = (* any character except newline *)
 ws              = ( " " | "\t" | newline )*
 newline         = "\n" | "\r\n" | "\r"
 ```
+
+**Key additions in v0.6.0:**
+- `array` production: The `[]` suffix for array types
+- `quoted_id` production: Backtick-quoted identifiers for legacy schemas with spaces/special characters
+- `"``"` escapes a literal backtick within quoted identifiers
 
 **Note**: This grammar is intentionally simplified for clarity. A production parser should handle additional cases like multi-line comments, Unicode identifiers, and edge cases in whitespace handling.
 
@@ -589,6 +682,9 @@ newline         = "\n" | "\r\n" | "\r"
 | NUMERIC | decimal |
 | BYTEA | blob |
 | UUID | uuid |
+| TEXT[] | string[] |
+| INTEGER[] | int[] |
+| JSONB[] | json[] |
 
 ### MySQL → TSSN
 | MySQL | TSSN |
