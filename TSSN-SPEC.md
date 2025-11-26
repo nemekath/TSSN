@@ -211,6 +211,53 @@ interface GeoData {
 
 **Note**: The `@format` annotation is informational. TSSN parsers are not required to validate format compliance—this responsibility lies with the consuming application.
 
+### 2.7 Schema Namespaces
+
+For databases with multiple schemas, use the `@schema` annotation to specify the schema context:
+
+```typescript
+// @schema: auth
+interface Users {
+  id: int;              // PRIMARY KEY
+  email: string(255);   // UNIQUE
+}
+
+// @schema: billing
+interface Invoices {
+  id: int;              // PRIMARY KEY
+  user_id: int;         // FK -> auth.Users(id)
+  amount: decimal;
+}
+```
+
+#### 2.7.1 Default Schema Behavior
+
+Tables without an `@schema` annotation are assumed to be in the database's default schema:
+- SQL Server: `dbo`
+- PostgreSQL: `public`
+- MySQL: database name (no separate schema concept)
+
+#### 2.7.2 Cross-Schema References
+
+Foreign key references to tables in other schemas use the full path `schema.Table(column)`:
+
+```typescript
+// @schema: public
+interface Orders {
+  id: int;                    // PRIMARY KEY
+  user_id: int;               // FK -> auth.Users(id)
+  billing_address_id: int;    // FK -> billing.Addresses(id)
+}
+```
+
+This enables LLMs to generate correct cross-schema JOINs:
+
+```sql
+SELECT o.*, u.email
+FROM public.orders o
+JOIN auth.users u ON o.user_id = u.id
+```
+
 ## 3. Extended Annotations
 
 ### 3.1 Domain-Specific Metadata

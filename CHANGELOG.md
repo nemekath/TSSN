@@ -15,12 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implementation guidance for generators and parsers
 - **Section 1.3.1: Primary Use Case** - Clarified that TSSN is optimized for read query (SELECT) generation
 - **Section 1.3.2: Positioning** - Added guidance on when to use TSSN vs. alternatives (GraphQL, ORM schemas, DDL)
+- **Section 2.7: Schema Namespaces** - Support for multi-schema databases via `@schema` annotation
+  - Default schema behavior (dbo, public)
+  - Cross-schema foreign key references
 
 ### Changed
 - **README.md** - Removed fictional implementation references; TSSN is draft-only with no reference implementations yet
 
 ### Under Discussion
-- Multi-schema support with explicit schema prefixes
 - View definitions alongside tables
 - Temporal table syntax for history/versioning
 - Graph database relationship syntax
