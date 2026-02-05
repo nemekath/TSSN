@@ -1,0 +1,6 @@
+interface Orders {
+  id: int;              // PRIMARY KEY
+  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
+  priority: 1 | 2 | 3;
+  payment?: 'card' | 'bank' | 'crypto';
+}

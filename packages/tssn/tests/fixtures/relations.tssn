@@ -1,0 +1,15 @@
+interface Organizations {
+  id: int;              // PRIMARY KEY, AUTO_INCREMENT
+  name: string(255);    // UNIQUE
+  created_at: datetime;
+}
+
+// INDEX(organization_id, role)
+interface Users {
+  id: int;                    // PRIMARY KEY, AUTO_INCREMENT
+  email: string(255);         // UNIQUE
+  organization_id: int;       // FK -> Organizations(id)
+  role: string(20);
+  last_login?: datetime;
+  created_at: datetime;       // DEFAULT CURRENT_TIMESTAMP
+}

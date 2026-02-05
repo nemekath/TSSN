@@ -1,0 +1,31 @@
+// @schema: app
+// @description: Core application tables
+
+interface Organizations {
+  id: int;              // PRIMARY KEY, AUTO_INCREMENT
+  name: string(200);
+  slug: string(200);    // UNIQUE, INDEX
+  settings?: json;
+  created_at: datetime; // DEFAULT CURRENT_TIMESTAMP
+}
+
+// UNIQUE(email)
+// INDEX(organization_id, role)
+interface Users {
+  id: int;              // PRIMARY KEY, AUTO_INCREMENT
+  organization_id: int; // FK -> Organizations(id), ON DELETE CASCADE
+  email: string(255);   // UNIQUE
+  name: string(100);
+  role: string(20);
+  last_login?: datetime;
+  created_at: datetime; // DEFAULT CURRENT_TIMESTAMP
+}
+
+// UNIQUE(user_id, project_id)
+interface ProjectMembers {
+  id: int;              // PRIMARY KEY, AUTO_INCREMENT
+  user_id: int;         // FK -> Users(id), ON DELETE CASCADE
+  project_id: int;      // FK -> Projects(id), ON DELETE CASCADE
+  permission: string(20);
+  joined_at: datetime;
+}

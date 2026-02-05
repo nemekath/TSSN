@@ -1,0 +1,7 @@
+interface Articles {
+  id: int;              // PRIMARY KEY
+  title: string(200);
+  tags: string[];
+  scores: int[];
+  metadata?: json[];
+}
