@@ -21,6 +21,7 @@
 
 export { parse, TSSNParseError } from "./parser.js";
 export { generate, generateTable } from "./generator.js";
+export { mapType } from "./type-mapper.js";
 export type {
   Schema,
   Table,
@@ -34,3 +35,4 @@ export type {
   TSSNBaseType,
 } from "./types.js";
 export type { GeneratorOptions } from "./generator.js";
+export type { DatabaseType, MappedType } from "./type-mapper.js";

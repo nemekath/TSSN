@@ -275,15 +275,22 @@ When a database-specific type has no direct TSSN equivalent, map it to the close
 | Vendor Type | Database | TSSN Type | Annotation | Rationale |
 |-------------|----------|-----------|------------|-----------|
 | `XML` | SQL Server, PostgreSQL | `text` | `@format: xml` | Structured text, potentially large |
-| `GEOGRAPHY` | SQL Server | `string` | `@format: wkt` | WKT representation is token-efficient |
-| `GEOMETRY` | SQL Server, PostGIS | `string` | `@format: wkt` | WKT representation is universal |
+| `GEOGRAPHY` | SQL Server, MySQL | `string` | `@format: wkt` | WKT representation is token-efficient |
+| `GEOMETRY` | SQL Server, PostGIS, MySQL | `string` | `@format: wkt` | WKT representation is universal |
 | `HSTORE` | PostgreSQL | `json` | — | Key-value maps naturally to JSON |
 | `JSONB` | PostgreSQL | `json` | — | Binary JSON is semantically JSON |
-| `INTERVAL` | PostgreSQL | `string` | `@format: interval` | ISO 8601 duration format |
+| `INTERVAL` | PostgreSQL, Oracle | `string` | `@format: interval` | ISO 8601 duration format |
 | `CIDR`, `INET` | PostgreSQL | `string` | `@format: cidr` | Network addresses as strings |
-| `MONEY` | SQL Server | `decimal` | — | Currency is a decimal value |
+| `MACADDR` | PostgreSQL | `string` | `@format: mac` | MAC address as string |
+| `MONEY` | SQL Server, PostgreSQL | `decimal` | — | Currency is a decimal value |
 | `HIERARCHYID` | SQL Server | `string` | `@format: hierarchyid` | Path representation |
 | `ROWVERSION` | SQL Server | `blob` | — | Binary timestamp |
+| `DATETIMEOFFSET` | SQL Server | `datetime` | `@format: tz` | Datetime with timezone offset |
+| `TIMESTAMPTZ` | PostgreSQL | `datetime` | `@format: tz` | Timezone-aware timestamp |
+| `TSVECTOR` | PostgreSQL | `string` | `@format: tsvector` | Full-text search lexemes |
+| `TSQUERY` | PostgreSQL | `string` | `@format: tsquery` | Full-text search query |
+| `SQL_VARIANT` | SQL Server | `string` | — | Polymorphic storage |
+| `BIT(n)`, `VARBIT(n)` | PostgreSQL | `string` | `@format: bits` | Bit string representation |
 
 #### 2.6.3 Format Annotation Patterns
 
@@ -735,38 +742,325 @@ newline         = "\n" | "\r\n" | "\r"
 ## Appendix B: Type Conversion Table
 
 ### SQL Server → TSSN
-| SQL Server | TSSN |
-|------------|------|
-| INT, BIGINT, SMALLINT | int |
-| VARCHAR, NVARCHAR | string |
-| DATETIME, DATETIME2 | datetime |
-| BIT | boolean |
-| DECIMAL, MONEY | decimal |
-| VARBINARY, IMAGE | blob |
+
+#### Numeric Types
+| SQL Server | TSSN | Notes |
+|------------|------|-------|
+| `TINYINT` | `int` | 0 to 255 (unsigned) |
+| `SMALLINT` | `int` | -32,768 to 32,767 |
+| `INT` | `int` | -2^31 to 2^31-1 |
+| `BIGINT` | `int` | -2^63 to 2^63-1 |
+| `DECIMAL(p,s)`, `NUMERIC(p,s)` | `decimal` | Precision/scale discarded (lossy) |
+| `MONEY` | `decimal` | -922 trillion to 922 trillion |
+| `SMALLMONEY` | `decimal` | -214,748 to 214,748 |
+| `FLOAT` | `float` | Double-precision (8 bytes) |
+| `REAL` | `float` | Single-precision (4 bytes) |
+
+#### String Types
+| SQL Server | TSSN | Notes |
+|------------|------|-------|
+| `CHAR(n)` | `char(n)` | Fixed-length, non-Unicode |
+| `NCHAR(n)` | `char(n)` | Fixed-length, Unicode |
+| `VARCHAR(n)` | `string(n)` | Variable-length, non-Unicode |
+| `NVARCHAR(n)` | `string(n)` | Variable-length, Unicode |
+| `VARCHAR(MAX)` | `text` | Up to 2 GB |
+| `NVARCHAR(MAX)` | `text` | Up to 2 GB, Unicode |
+| `TEXT` | `text` | Deprecated, use VARCHAR(MAX) |
+| `NTEXT` | `text` | Deprecated, use NVARCHAR(MAX) |
+
+#### Temporal Types
+| SQL Server | TSSN | Notes |
+|------------|------|-------|
+| `DATE` | `date` | Date only |
+| `TIME` | `time` | Time only, up to 100ns precision |
+| `DATETIME` | `datetime` | 1753-01-01 to 9999-12-31 |
+| `DATETIME2` | `datetime` | Higher precision than DATETIME |
+| `SMALLDATETIME` | `datetime` | Minute precision |
+| `DATETIMEOFFSET` | `datetime` | `@format: tz` — includes timezone offset |
+
+#### Other Types
+| SQL Server | TSSN | Notes |
+|------------|------|-------|
+| `BIT` | `boolean` | 0, 1, or NULL |
+| `UNIQUEIDENTIFIER` | `uuid` | 16-byte GUID |
+| `VARBINARY(n)` | `blob` | Variable-length binary |
+| `VARBINARY(MAX)` | `blob` | Up to 2 GB binary |
+| `BINARY(n)` | `blob` | Fixed-length binary |
+| `IMAGE` | `blob` | Deprecated, use VARBINARY(MAX) |
+| `JSON` | `json` | SQL Server 2025+, native JSON |
+| `XML` | `text` | `@format: xml` |
+| `SQL_VARIANT` | `string` | Stores various data types |
+| `GEOGRAPHY` | `string` | `@format: wkt` |
+| `GEOMETRY` | `string` | `@format: wkt` |
+| `HIERARCHYID` | `string` | `@format: hierarchyid` |
+| `ROWVERSION` / `TIMESTAMP` | `blob` | Auto-generated binary(8) |
 
 ### PostgreSQL → TSSN
-| PostgreSQL | TSSN |
-|------------|------|
-| INTEGER, BIGINT | int |
-| VARCHAR, TEXT | string |
-| TIMESTAMP | datetime |
-| BOOLEAN | boolean |
-| NUMERIC | decimal |
-| BYTEA | blob |
-| UUID | uuid |
-| TEXT[] | string[] |
-| INTEGER[] | int[] |
-| JSONB[] | json[] |
+
+#### Numeric Types
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `SMALLINT` / `INT2` | `int` | 2 bytes |
+| `INTEGER` / `INT4` | `int` | 4 bytes |
+| `BIGINT` / `INT8` | `int` | 8 bytes |
+| `SERIAL` | `int` | Auto-incrementing 4-byte; use `// AUTO_INCREMENT` |
+| `SMALLSERIAL` | `int` | Auto-incrementing 2-byte |
+| `BIGSERIAL` | `int` | Auto-incrementing 8-byte |
+| `NUMERIC(p,s)` / `DECIMAL(p,s)` | `decimal` | Precision/scale discarded (lossy) |
+| `MONEY` | `decimal` | Locale-formatted currency |
+| `REAL` / `FLOAT4` | `float` | Single-precision |
+| `DOUBLE PRECISION` / `FLOAT8` | `float` | Double-precision |
+
+#### String Types
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `CHARACTER(n)` / `CHAR(n)` | `char(n)` | Fixed-length |
+| `CHARACTER VARYING(n)` / `VARCHAR(n)` | `string(n)` | Variable-length with limit |
+| `VARCHAR` (no length) | `string` | Unlimited variable-length |
+| `TEXT` | `text` | Unlimited variable-length |
+
+#### Temporal Types
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `DATE` | `date` | Date only |
+| `TIME` | `time` | Time without timezone |
+| `TIME WITH TIME ZONE` / `TIMETZ` | `time` | `@format: tz` |
+| `TIMESTAMP` | `datetime` | Timestamp without timezone |
+| `TIMESTAMP WITH TIME ZONE` / `TIMESTAMPTZ` | `datetime` | `@format: tz` — most common in production |
+| `INTERVAL` | `string` | `@format: interval` — ISO 8601 duration |
+
+#### Other Types
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `BOOLEAN` | `boolean` | true/false |
+| `BYTEA` | `blob` | Binary data |
+| `UUID` | `uuid` | 128-bit identifier |
+| `JSON` | `json` | Text JSON |
+| `JSONB` | `json` | Binary JSON (semantically identical) |
+| `XML` | `text` | `@format: xml` |
+| `HSTORE` | `json` | Key-value store maps to JSON |
+
+#### Array Types
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `TEXT[]` | `string[]` | Array of strings |
+| `INTEGER[]` | `int[]` | Array of integers |
+| `JSONB[]` | `json[]` | Array of JSON objects |
+| `<any_type>[]` | `<mapped_type>[]` | Any type can be an array |
+
+#### Full-Text Search Types
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `TSVECTOR` | `string` | `@format: tsvector` — use `@@` operator, not `LIKE` |
+| `TSQUERY` | `string` | `@format: tsquery` — search query representation |
+
+#### Network Types
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `CIDR` | `string` | `@format: cidr` — IPv4/IPv6 network |
+| `INET` | `string` | `@format: cidr` — IPv4/IPv6 host |
+| `MACADDR` | `string` | `@format: mac` — MAC address |
+| `MACADDR8` | `string` | `@format: mac` — EUI-64 MAC address |
+
+#### Bit String Types
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `BIT(n)` | `string` | `@format: bits` — fixed-length bit string |
+| `BIT VARYING(n)` / `VARBIT(n)` | `string` | `@format: bits` — variable-length bit string |
+
+#### Geometric Types (Native)
+| PostgreSQL | TSSN | Notes |
+|------------|------|-------|
+| `POINT` | `string` | `@format: wkt` |
+| `LINE` | `string` | `@format: wkt` |
+| `LSEG` | `string` | `@format: wkt` |
+| `BOX` | `string` | `@format: wkt` |
+| `PATH` | `string` | `@format: wkt` |
+| `POLYGON` | `string` | `@format: wkt` |
+| `CIRCLE` | `string` | `@format: wkt` |
+
+#### PostGIS Types
+| PostgreSQL + PostGIS | TSSN | Notes |
+|----------------------|------|-------|
+| `GEOMETRY` | `string` | `@format: wkt` |
+| `GEOGRAPHY` | `string` | `@format: wkt` |
+
+#### Enum Types
+
+PostgreSQL enums (`CREATE TYPE status AS ENUM ('a','b','c')`) should be mapped to literal union types:
+
+```typescript
+status: 'a' | 'b' | 'c';
+```
+
+Generators SHOULD look up enum values and emit union types for columns using enum types.
 
 ### MySQL → TSSN
-| MySQL | TSSN |
-|--------|------|
-| INT, BIGINT | int |
-| VARCHAR, TEXT | string |
-| DATETIME | datetime |
-| TINYINT(1) | boolean |
-| DECIMAL | decimal |
-| BLOB | blob |
+
+#### Numeric Types
+| MySQL | TSSN | Notes |
+|-------|------|-------|
+| `TINYINT` | `int` | 1 byte (-128 to 127) |
+| `TINYINT(1)` | `boolean` | Special case: display width 1 → boolean |
+| `SMALLINT` | `int` | 2 bytes |
+| `MEDIUMINT` | `int` | 3 bytes (MySQL-specific) |
+| `INT` / `INTEGER` | `int` | 4 bytes |
+| `BIGINT` | `int` | 8 bytes |
+| `DECIMAL(p,s)` / `NUMERIC(p,s)` | `decimal` | Precision/scale discarded (lossy) |
+| `FLOAT` | `float` | Single-precision |
+| `DOUBLE` / `DOUBLE PRECISION` | `float` | Double-precision |
+| `REAL` | `float` | Synonym for DOUBLE (default) |
+
+#### String Types
+| MySQL | TSSN | Notes |
+|-------|------|-------|
+| `CHAR(n)` | `char(n)` | Fixed-length, up to 255 |
+| `VARCHAR(n)` | `string(n)` | Variable-length, up to 65,535 |
+| `TINYTEXT` | `text` | Up to 255 bytes |
+| `TEXT` | `text` | Up to 64 KB |
+| `MEDIUMTEXT` | `text` | Up to 16 MB |
+| `LONGTEXT` | `text` | Up to 4 GB |
+
+#### Binary Types
+| MySQL | TSSN | Notes |
+|-------|------|-------|
+| `BINARY(n)` | `blob` | Fixed-length binary |
+| `VARBINARY(n)` | `blob` | Variable-length binary |
+| `TINYBLOB` | `blob` | Up to 255 bytes |
+| `BLOB` | `blob` | Up to 64 KB |
+| `MEDIUMBLOB` | `blob` | Up to 16 MB |
+| `LONGBLOB` | `blob` | Up to 4 GB |
+
+#### Temporal Types
+| MySQL | TSSN | Notes |
+|-------|------|-------|
+| `DATE` | `date` | Date only |
+| `TIME` | `time` | Time only |
+| `DATETIME` | `datetime` | Date and time (literal value) |
+| `TIMESTAMP` | `datetime` | Stored as UTC, auto-converts to session timezone |
+| `YEAR` | `int` | 4-digit year (1901-2155) |
+
+#### Other Types
+| MySQL | TSSN | Notes |
+|-------|------|-------|
+| `JSON` | `json` | Native JSON (MySQL 5.7.8+) |
+| `BIT(n)` | `string` | `@format: bits` — bit-field (1-64 bits) |
+
+#### Spatial Types
+| MySQL | TSSN | Notes |
+|-------|------|-------|
+| `GEOMETRY` | `string` | `@format: wkt` |
+| `POINT` | `string` | `@format: wkt` |
+| `LINESTRING` | `string` | `@format: wkt` |
+| `POLYGON` | `string` | `@format: wkt` |
+| `MULTIPOINT` | `string` | `@format: wkt` |
+| `MULTILINESTRING` | `string` | `@format: wkt` |
+| `MULTIPOLYGON` | `string` | `@format: wkt` |
+| `GEOMETRYCOLLECTION` | `string` | `@format: wkt` |
+
+#### Enum and Set Types
+
+MySQL `ENUM('a','b','c')` should be mapped to literal union types:
+
+```typescript
+status: 'a' | 'b' | 'c';
+```
+
+MySQL `SET('a','b','c')` allows multiple values. Map to `string` with a comment indicating the allowed values:
+
+```typescript
+features: string;   // SET: 'wifi', 'pool', 'parking'
+```
+
+Generators SHOULD look up ENUM values and emit union types. SET columns should use `string` as they store comma-separated values.
+
+### Oracle → TSSN
+
+**Important:** Oracle's `DATE` type includes time components (hour, minute, second), unlike the SQL standard `DATE`. It MUST be mapped to `datetime`, not `date`.
+
+#### Numeric Types
+| Oracle | TSSN | Notes |
+|--------|------|-------|
+| `NUMBER` (no precision) | `number` | Generic numeric |
+| `NUMBER(n)` (scale=0) | `int` | Integer (precision only, no decimals) |
+| `NUMBER(p,s)` (scale>0) | `decimal` | Fixed-point decimal |
+| `BINARY_FLOAT` | `float` | 32-bit IEEE 754 |
+| `BINARY_DOUBLE` | `float` | 64-bit IEEE 754 |
+
+#### String Types
+| Oracle | TSSN | Notes |
+|--------|------|-------|
+| `VARCHAR2(n)` | `string(n)` | Oracle's standard variable-length (NOT `VARCHAR`) |
+| `NVARCHAR2(n)` | `string(n)` | Unicode variable-length |
+| `CHAR(n)` | `char(n)` | Fixed-length |
+| `NCHAR(n)` | `char(n)` | Unicode fixed-length |
+| `CLOB` | `text` | Character LOB, up to 128 TB |
+| `NCLOB` | `text` | Unicode CLOB |
+| `LONG` | `text` | Deprecated, use CLOB |
+
+#### Temporal Types
+| Oracle | TSSN | Notes |
+|--------|------|-------|
+| `DATE` | `datetime` | **Includes time!** Unlike SQL standard DATE |
+| `TIMESTAMP` | `datetime` | Fractional seconds precision |
+| `TIMESTAMP WITH TIME ZONE` | `datetime` | `@format: tz` — includes timezone |
+| `TIMESTAMP WITH LOCAL TIME ZONE` | `datetime` | `@format: tz` — session timezone conversion |
+| `INTERVAL YEAR TO MONTH` | `string` | `@format: interval` |
+| `INTERVAL DAY TO SECOND` | `string` | `@format: interval` |
+
+#### Other Types
+| Oracle | TSSN | Notes |
+|--------|------|-------|
+| `BOOLEAN` | `boolean` | Oracle 23ai+ (previously PL/SQL only) |
+| `RAW(n)` | `blob` | Variable-length binary, up to 32 KB |
+| `LONG RAW` | `blob` | Deprecated, use BLOB |
+| `BLOB` | `blob` | Binary LOB, up to 128 TB |
+| `BFILE` | `blob` | Pointer to external OS file |
+| `JSON` | `json` | Oracle 23ai+, native binary JSON |
+| `XMLTYPE` | `text` | `@format: xml` — native XML with methods |
+| `ROWID` | `string` | Physical row address |
+| `UROWID` | `string` | Universal ROWID |
+
+#### Spatial Types (Oracle Spatial)
+| Oracle | TSSN | Notes |
+|--------|------|-------|
+| `SDO_GEOMETRY` | `string` | `@format: wkt` |
+
+### SQLite → TSSN
+
+SQLite uses a **type affinity** system rather than strict types. Any type name is accepted in a column declaration, but SQLite maps it to one of 5 storage classes: `NULL`, `INTEGER`, `REAL`, `TEXT`, `BLOB`.
+
+**Important:** SQLite does NOT enforce type constraints. A `VARCHAR(255)` column can hold any value of any length. TSSN generators working with SQLite should be aware of this.
+
+#### Storage Class Mapping
+| SQLite Storage Class | TSSN | Notes |
+|---------------------|------|-------|
+| `INTEGER` | `int` | 1-8 bytes, signed |
+| `REAL` | `float` | 8-byte IEEE floating point |
+| `TEXT` | `text` | UTF-8/UTF-16 string |
+| `BLOB` | `blob` | Raw binary data |
+
+#### Common Declared Types → TSSN
+| SQLite Declared Type | Affinity | TSSN | Notes |
+|---------------------|----------|------|-------|
+| `INT`, `INTEGER` | INTEGER | `int` | `INTEGER PRIMARY KEY` auto-increments |
+| `REAL`, `FLOAT`, `DOUBLE` | REAL | `float` | |
+| `TEXT`, `CLOB` | TEXT | `text` | |
+| `BLOB` | BLOB | `blob` | |
+| `VARCHAR(n)` | TEXT | `string(n)` | Length NOT enforced |
+| `CHAR(n)` | TEXT | `char(n)` | Length NOT enforced |
+| `BOOLEAN` | NUMERIC | `boolean` | Stored as INTEGER 0/1 |
+| `DATE` | NUMERIC | `date` | Stored as TEXT (ISO 8601), REAL (Julian), or INTEGER (Unix) |
+| `DATETIME`, `TIMESTAMP` | NUMERIC | `datetime` | Same storage options as DATE |
+| `DECIMAL` | NUMERIC | `decimal` | Stored as INTEGER or REAL, not fixed-point |
+| `JSON` | TEXT | `json` | JSON functions available since 3.9.0 |
+
+#### SQLite-Specific Considerations
+
+1. **Auto-increment:** `INTEGER PRIMARY KEY` auto-increments implicitly. The `AUTOINCREMENT` keyword changes the algorithm but is rarely needed.
+2. **Foreign keys:** Supported but OFF by default. Require `PRAGMA foreign_keys = ON`.
+3. **STRICT tables (3.37.0+):** Enforce declared types. Only allow: `INT`, `INTEGER`, `REAL`, `TEXT`, `BLOB`, `ANY`.
+4. **Type affinity trap:** The declared type name `STRING` gets NUMERIC affinity (not TEXT), because it doesn't match SQLite's TEXT-affinity patterns.
 
 ## Appendix C: License
 
