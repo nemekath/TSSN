@@ -464,29 +464,45 @@ class TypeMapper:
     }
     
     SQLSERVER_TYPES = {
+        # Numeric
+        'tinyint': 'int',
+        'smallint': 'int',
         'int': 'int',
         'bigint': 'int',
-        'smallint': 'int',
-        'tinyint': 'int',
-        'varchar': 'string',
-        'nvarchar': 'string',
-        'text': 'text',
-        'ntext': 'text',
-        'char': 'string',
-        'nchar': 'string',
-        'datetime': 'datetime',
-        'datetime2': 'datetime',
-        'date': 'date',
-        'time': 'time',
-        'bit': 'boolean',
         'decimal': 'decimal',
         'numeric': 'decimal',
         'money': 'decimal',
+        'smallmoney': 'decimal',
         'float': 'float',
         'real': 'float',
-        'varbinary': 'blob',
-        'image': 'blob',
+        # String
+        'char': 'string',       # preserve_length=True
+        'nchar': 'string',      # preserve_length=True
+        'varchar': 'string',    # preserve_length=True; varchar(max) -> text
+        'nvarchar': 'string',   # preserve_length=True; nvarchar(max) -> text
+        'text': 'text',         # deprecated
+        'ntext': 'text',        # deprecated
+        # Temporal
+        'date': 'date',
+        'time': 'time',
+        'datetime': 'datetime',
+        'datetime2': 'datetime',
+        'smalldatetime': 'datetime',
+        'datetimeoffset': 'datetime',  # @format: tz
+        # Other
+        'bit': 'boolean',
         'uniqueidentifier': 'uuid',
+        'json': 'json',         # SQL Server 2025+
+        'xml': 'text',          # @format: xml
+        'varbinary': 'blob',    # varbinary(max) also maps to blob
+        'binary': 'blob',
+        'image': 'blob',        # deprecated
+        'geography': 'string',  # @format: wkt
+        'geometry': 'string',   # @format: wkt
+        'hierarchyid': 'string',  # @format: hierarchyid
+        'rowversion': 'blob',
+        'timestamp': 'blob',    # alias for rowversion
+        'sql_variant': 'string',
     }
     
     def __init__(self, database_type: str):

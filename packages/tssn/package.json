@@ -1,0 +1,27 @@
+{
+  "name": "@tssn/parser",
+  "version": "0.7.0",
+  "description": "TypeScript-Style Schema Notation — parser and generator",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": ["tssn", "schema", "database", "llm", "token-efficient", "parser"],
+  "author": "Benjamin Zimmer",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

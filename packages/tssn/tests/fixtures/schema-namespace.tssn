@@ -1,0 +1,12 @@
+// @schema: auth
+interface Users {
+  id: int;              // PRIMARY KEY
+  email: string(255);   // UNIQUE
+}
+
+// @schema: billing
+interface Invoices {
+  id: int;              // PRIMARY KEY
+  user_id: int;         // FK -> auth.Users(id)
+  amount: decimal;
+}

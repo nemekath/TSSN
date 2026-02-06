@@ -1,0 +1,16 @@
+interface TypeShowcase {
+  id: int;
+  price: decimal;
+  rating: float;
+  quantity: number;
+  code: char(3);
+  name: string(100);
+  description: text;
+  created_at: datetime;
+  birth_date: date;
+  start_time: time;
+  is_active: boolean;
+  data: json;
+  file: blob;
+  external_id: uuid;
+}

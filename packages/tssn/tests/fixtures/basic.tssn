@@ -1,0 +1,7 @@
+interface Products {
+  id: int;              // PRIMARY KEY, AUTO_INCREMENT
+  name: string(200);
+  price: decimal;
+  description?: text;
+  created_at: datetime; // DEFAULT CURRENT_TIMESTAMP
+}

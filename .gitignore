@@ -12,3 +12,8 @@ Thumbs.db
 # Backup files
 *.bak
 *.tmp
+
+# Node.js
+node_modules/
+dist/
+*.tsbuildinfo

@@ -1,0 +1,7 @@
+interface `Order Details` {
+  `Order ID`: int;            // PRIMARY KEY
+  `Product Name`: string(100);
+  `Unit Price`: decimal;
+  `Qty Ordered`: int;
+  `Ship Date`?: datetime;
+}
