@@ -224,6 +224,8 @@ const MYSQL_TYPES: Record<string, string> = {
   timestamp: "datetime",
   year: "int",
   // Other
+  boolean: "boolean",
+  bool: "boolean",
   json: "json",
   bit: "string",
   // Spatial

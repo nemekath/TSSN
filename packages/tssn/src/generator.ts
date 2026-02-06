@@ -8,9 +8,7 @@ import type { Schema, Table, Column, ColumnType, Constraint } from "./types.js";
 export interface GeneratorOptions {
   /** Number of spaces for indentation (default: 2) */
   indent?: number;
-  /** Target column for type alignment (default: 25) */
-  typeAlignment?: number;
-  /** Target column for comment alignment (default: 45) */
+  /** Target column for comment alignment from start of line (default: 45) */
   commentAlignment?: number;
   /** Sort columns: PK first, timestamps last (default: true) */
   sortColumns?: boolean;
@@ -18,7 +16,6 @@ export interface GeneratorOptions {
 
 const DEFAULTS: Required<GeneratorOptions> = {
   indent: 2,
-  typeAlignment: 25,
   commentAlignment: 45,
   sortColumns: true,
 };

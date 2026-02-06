@@ -229,6 +229,139 @@ describe("TSSN Parser", () => {
     });
   });
 
+  describe("comments with colons inside interfaces", () => {
+    it("treats // lines as comments even when they contain colons", () => {
+      const schema = parse(`
+interface Users {
+  // NOTE: This is important
+  id: int;              // PRIMARY KEY
+  // @description: User email address
+  email: string(255);
+}
+      `);
+
+      expect(schema.tables[0].columns).toHaveLength(2);
+      expect(schema.tables[0].columns[0].name).toBe("id");
+      expect(schema.tables[0].columns[1].name).toBe("email");
+    });
+  });
+
+  describe("escaped backticks", () => {
+    it("unescapes double backticks in table identifiers", () => {
+      const schema = parse("interface `Table``Name` {\n  id: int;\n}");
+      expect(schema.tables[0].name).toBe("Table`Name");
+    });
+
+    it("unescapes double backticks in column identifiers", () => {
+      const schema = parse("interface Test {\n  `Col``1`: int;\n}");
+      expect(schema.tables[0].columns[0].name).toBe("Col`1");
+    });
+  });
+
+  describe("FOREIGN KEY long form", () => {
+    it("parses FOREIGN KEY -> syntax", () => {
+      const schema = parse(`
+interface Orders {
+  id: int;                // PRIMARY KEY
+  user_id: int;           // FOREIGN KEY -> Users(id)
+}
+      `);
+
+      const userId = schema.tables[0].columns.find((c) => c.name === "user_id")!;
+      const fk = userId.constraints.find((c) => c.type === "FOREIGN_KEY")!;
+      expect(fk.referenceTable).toBe("Users");
+      expect(fk.referenceColumn).toBe("id");
+    });
+
+    it("parses FOREIGN KEY with ON UPDATE CASCADE", () => {
+      const schema = parse(`
+interface Items {
+  id: int;                // PRIMARY KEY
+  order_id: int;          // FK -> Orders(id), ON UPDATE CASCADE
+}
+      `);
+
+      const orderId = schema.tables[0].columns.find((c) => c.name === "order_id")!;
+      const fk = orderId.constraints.find((c) => c.type === "FOREIGN_KEY")!;
+      expect(fk.referenceAction).toBe("ON UPDATE CASCADE");
+    });
+  });
+
+  describe("DEFAULT constraint edge cases", () => {
+    it("parses DEFAULT followed by another constraint", () => {
+      const schema = parse(`
+interface Test {
+  status: string(20);    // DEFAULT 'active', UNIQUE
+}
+      `);
+
+      const status = schema.tables[0].columns[0];
+      expect(status.constraints).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "UNIQUE" }),
+          expect.objectContaining({ type: "DEFAULT", value: "'active'" }),
+        ]),
+      );
+    });
+
+    it("parses DEFAULT CURRENT_TIMESTAMP correctly", () => {
+      const schema = parse(`
+interface Test {
+  created_at: datetime;   // DEFAULT CURRENT_TIMESTAMP
+}
+      `);
+
+      const col = schema.tables[0].columns[0];
+      const def = col.constraints.find((c) => c.type === "DEFAULT")!;
+      expect(def.value).toBe("CURRENT_TIMESTAMP");
+    });
+  });
+
+  describe("windows line endings", () => {
+    it("parses input with \\r\\n line endings", () => {
+      const input = "interface Users {\r\n  id: int;              // PRIMARY KEY\r\n  email: string(255);\r\n}\r\n";
+      const schema = parse(input);
+
+      expect(schema.tables).toHaveLength(1);
+      expect(schema.tables[0].columns).toHaveLength(2);
+      expect(schema.tables[0].columns[0].name).toBe("id");
+    });
+  });
+
+  describe("multiple annotations", () => {
+    it("parses multiple annotations on a table", () => {
+      const schema = parse(`
+// @schema: auth
+// @description: User accounts
+interface Users {
+  id: int;              // PRIMARY KEY
+}
+      `);
+
+      const table = schema.tables[0];
+      expect(table.annotations).toEqual({
+        schema: "auth",
+        description: "User accounts",
+      });
+    });
+  });
+
+  describe("mixed union types", () => {
+    it("parses mixed string and number unions", () => {
+      const schema = parse(`
+interface Test {
+  mixed: 'a' | 1 | 'b' | 2;
+}
+      `);
+
+      const col = schema.tables[0].columns[0];
+      expect(col.type).toEqual({
+        kind: "union",
+        values: ["a", 1, "b", 2],
+      });
+    });
+  });
+
   describe("error handling", () => {
     it("throws TSSNParseError for invalid interface declaration", () => {
       expect(() => parse("interface {")).toThrow(TSSNParseError);

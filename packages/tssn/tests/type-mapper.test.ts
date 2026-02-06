@@ -229,6 +229,12 @@ describe("TypeMapper", () => {
       });
     });
 
+    describe("key-value types", () => {
+      it("maps HSTORE → json", () => {
+        expect(mapType("postgresql", "hstore").base).toBe("json");
+      });
+    });
+
     describe("full-text search types", () => {
       it("maps TSVECTOR → string with @format: tsvector", () => {
         const result = mapType("postgresql", "tsvector");
@@ -340,6 +346,14 @@ describe("TypeMapper", () => {
     });
 
     describe("other types", () => {
+      it("maps BOOLEAN → boolean", () => {
+        expect(mapType("mysql", "BOOLEAN").base).toBe("boolean");
+      });
+
+      it("maps BOOL → boolean", () => {
+        expect(mapType("mysql", "BOOL").base).toBe("boolean");
+      });
+
       it("maps JSON → json", () => {
         expect(mapType("mysql", "JSON").base).toBe("json");
       });
@@ -375,8 +389,13 @@ describe("TypeMapper", () => {
         expect(mapType("oracle", "NUMBER").base).toBe("number");
       });
 
-      it("maps NUMBER(10) (scale=0) → int", () => {
+      it("maps NUMBER(10) (no scale) → int", () => {
         const result = mapType("oracle", "NUMBER", 10);
+        expect(result.base).toBe("int");
+      });
+
+      it("maps NUMBER(10,0) (explicit scale=0) → int", () => {
+        const result = mapType("oracle", "NUMBER", 10, 0);
         expect(result.base).toBe("int");
       });
 

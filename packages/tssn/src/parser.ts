@@ -131,8 +131,10 @@ class Parser {
         continue;
       }
 
-      // Standalone comment inside interface (table-level constraint or annotation)
-      if (colLine.startsWith("//") && !colLine.includes(":")) {
+      // Standalone comment inside interface
+      // A line is a comment if it starts with "//" — detect this BEFORE trying
+      // to parse as a column definition (comments may contain ":" characters).
+      if (colLine.startsWith("//")) {
         const inner = colLine.slice(2).trimStart();
         const cMatch = inner.match(/^(UNIQUE|INDEX)\s*\(([^)]+)\)$/i);
         if (cMatch) {
@@ -288,12 +290,14 @@ class Parser {
       });
     }
 
-    // DEFAULT value
+    // DEFAULT value — match until next comma-separated constraint or end of comment
     const defaultMatch = comment.match(
-      /\bDEFAULT\s+(\S+(?:\s+\S+)?)/i,
+      /\bDEFAULT\s+((?:'[^']*'|\S)+)/i,
     );
     if (defaultMatch) {
-      constraints.push({ type: "DEFAULT", value: defaultMatch[1] });
+      // Strip trailing comma if followed by another constraint keyword
+      const value = defaultMatch[1].replace(/,\s*$/, "");
+      constraints.push({ type: "DEFAULT", value });
     }
 
     // CHECK IN (...)

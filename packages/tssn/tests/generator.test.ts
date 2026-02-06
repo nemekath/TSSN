@@ -288,6 +288,89 @@ describe("TSSN Generator", () => {
     });
   });
 
+  describe("round-trip annotations and constraints", () => {
+    it("parse -> generate preserves @schema annotation", () => {
+      const input = fixture("schema-namespace.tssn");
+      const schema = parse(input);
+      const output = generate(schema);
+      const reparsed = parse(output);
+
+      expect(reparsed.tables[0].annotations).toEqual({ schema: "auth" });
+      expect(reparsed.tables[1].annotations).toEqual({ schema: "billing" });
+    });
+
+    it("parse -> generate preserves table-level constraints", () => {
+      const input = fixture("relations.tssn");
+      const schema = parse(input);
+      const output = generate(schema);
+      const reparsed = parse(output);
+
+      const users = reparsed.tables[1];
+      expect(users.tableConstraints).toEqual([
+        { type: "INDEX", columns: ["organization_id", "role"] },
+      ]);
+    });
+  });
+
+  describe("sortColumns option", () => {
+    it("preserves original order when sortColumns is false", () => {
+      const table: Table = {
+        name: "Test",
+        columns: [
+          {
+            name: "created_at",
+            type: { kind: "simple", base: "datetime", isArray: false },
+            nullable: false,
+            constraints: [],
+          },
+          {
+            name: "name",
+            type: { kind: "simple", base: "string", length: 100, isArray: false },
+            nullable: false,
+            constraints: [],
+          },
+          {
+            name: "id",
+            type: { kind: "simple", base: "int", isArray: false },
+            nullable: false,
+            constraints: [{ type: "PRIMARY_KEY" }],
+          },
+        ],
+        tableConstraints: [],
+        annotations: {},
+        comments: [],
+      };
+
+      const output = generateTable(table, { sortColumns: false });
+      const lines = output.split("\n").filter((l) => l.trim().includes(":"));
+      expect(lines[0]).toContain("created_at:");
+      expect(lines[1]).toContain("name:");
+      expect(lines[2]).toContain("id:");
+    });
+  });
+
+  describe("indent option", () => {
+    it("uses 4-space indent when configured", () => {
+      const table: Table = {
+        name: "Test",
+        columns: [
+          {
+            name: "id",
+            type: { kind: "simple", base: "int", isArray: false },
+            nullable: false,
+            constraints: [],
+          },
+        ],
+        tableConstraints: [],
+        annotations: {},
+        comments: [],
+      };
+
+      const output = generateTable(table, { indent: 4 });
+      expect(output).toContain("    id: int;");
+    });
+  });
+
   describe("schema generation", () => {
     it("generates multi-table schema with blank line separation", () => {
       const schema: Schema = {
