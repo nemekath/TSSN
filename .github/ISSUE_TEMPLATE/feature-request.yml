@@ -1,0 +1,72 @@
+name: Feature Request
+description: Propose a new feature or enhancement for the LINDT specification
+labels: ["enhancement"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: One-line summary of the proposed feature.
+      placeholder: "e.g., Add support for computed columns"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve?
+      placeholder: Describe the limitation or pain point...
+    validations:
+      required: true
+
+  - type: textarea
+    id: syntax
+    attributes:
+      label: Proposed Syntax
+      description: How would this look in LINDT?
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: llm-impact
+    attributes:
+      label: LLM Impact
+      description: How does this help LLMs generate better queries?
+      placeholder: Describe the expected improvement for LLM query generation...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: databases
+    attributes:
+      label: Database Compatibility
+      description: Which databases would benefit from this feature?
+      options:
+        - label: PostgreSQL
+        - label: MySQL
+        - label: SQL Server
+        - label: SQLite
+        - label: Other
+
+  - type: dropdown
+    id: token-impact
+    attributes:
+      label: Token Impact
+      description: How does this affect token consumption?
+      options:
+        - "Reduces tokens"
+        - "No impact"
+        - "Increases tokens (justified by value)"
+        - "Unknown"
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches did you consider?
+    validations:
+      required: false

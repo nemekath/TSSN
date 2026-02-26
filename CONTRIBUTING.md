@@ -1,8 +1,8 @@
-# Contributing to TSSN
+# Contributing to LINDT
 
-Thank you for your interest in contributing to TSSN (TypeScript-Style Schema Notation)! This document provides guidelines for contributing to the specification and related implementations.
+Thank you for your interest in contributing to LINDT (LLM INterface for Database Tables)! This document provides guidelines for contributing to the specification and related implementations.
 
-## 🎯 Ways to Contribute
+## Ways to Contribute
 
 ### 1. Specification Improvements
 - Clarify ambiguous language
@@ -28,7 +28,7 @@ Thank you for your interest in contributing to TSSN (TypeScript-Style Schema Not
 - Add edge case examples
 - Performance benchmarks
 
-## 📋 Process
+## Process
 
 ### Reporting Issues
 
@@ -37,33 +37,13 @@ Before creating an issue:
 2. Gather relevant information (examples, error messages, versions)
 3. Provide a minimal reproducible example if applicable
 
-**Issue Template:**
-```markdown
-**Type**: [Bug / Feature Request / Question / Documentation]
-
-**Description**:
-Clear description of the issue or proposal
-
-**Example**:
-Provide code examples or schema samples
-
-**Expected Behavior**:
-What you expected to happen
-
-**Actual Behavior**:
-What actually happened
-
-**Environment**:
-- TSSN Version: 
-- Database: 
-- Language/Framework:
-```
+We use structured issue templates. Please select the appropriate template when [opening an issue](https://github.com/nemekath/LINDT/issues/new/choose).
 
 ### Proposing Specification Changes
 
 Specification changes require careful consideration:
 
-1. **Open a Discussion** first in [GitHub Discussions](https://github.com/nemekath/TSSN/discussions)
+1. **Open a Discussion** first in [GitHub Discussions](https://github.com/nemekath/LINDT/discussions)
    - Explain the problem you're solving
    - Show examples of current limitations
    - Propose your solution with examples
@@ -111,11 +91,12 @@ Specification changes require careful consideration:
    - Are there breaking changes?
    - Have you updated documentation?
 
-## 📝 Style Guide
+## Style Guide
 
 ### Specification Writing
 
 - **Be precise**: Avoid ambiguous language
+- **Use RFC 2119 keywords**: When writing normative requirements, use MUST, SHOULD, MAY in UPPER CASE (see [Section 1.4 of the specification](LINDT-SPEC.md#14-notation-conventions))
 - **Use examples**: Show, don't just tell
 - **Be consistent**: Follow existing patterns
 - **Think about edge cases**: Document limitations
@@ -158,11 +139,11 @@ You can use ? for nullable columns.
 - Include code blocks with syntax highlighting
 - Link to related sections when referencing concepts
 
-## 🧪 Testing Guidelines
+## Testing Guidelines
 
 ### Specification Compliance
 
-When implementing TSSN:
+When implementing LINDT:
 
 1. **Core Features** (MUST support):
    - Interface declarations
@@ -223,25 +204,25 @@ interface CommentTest {
 }
 ```
 
-## 🏗️ Creating New Implementations
+## Creating New Implementations
 
 ### Structure
 
 Recommended package structure:
 
 ```
-tssn-[language]/
+lindt-[language]/
 ├── README.md
 ├── LICENSE
 ├── src/
-│   ├── parser.{ext}      # Parse TSSN text
-│   ├── generator.{ext}   # Generate TSSN from schemas
+│   ├── parser.{ext}      # Parse LINDT text
+│   ├── generator.{ext}   # Generate LINDT from schemas
 │   ├── types.{ext}       # Type definitions
 │   └── utils.{ext}       # Helpers
 ├── tests/
 │   ├── parser_test.{ext}
 │   ├── generator_test.{ext}
-│   └── fixtures/         # Test TSSN files
+│   └── fixtures/         # Test LINDT files
 └── examples/
     └── usage.{ext}
 ```
@@ -250,19 +231,19 @@ tssn-[language]/
 
 **Parser API:**
 ```python
-# Parse TSSN text into structured data
-schema = parse_tssn(tssn_text)
+# Parse LINDT text into structured data
+schema = parse_lindt(lindt_text)
 # Returns: Schema object with tables, columns, constraints
 ```
 
 **Generator API:**
 ```python
-# Generate TSSN from database connection
-tssn_text = generate_tssn(connection, table_name)
-# Returns: TSSN formatted string
+# Generate LINDT from database connection
+lindt_text = generate_lindt(connection, table_name)
+# Returns: LINDT formatted string
 
 # Generate from structured data
-tssn_text = generate_tssn(schema_object)
+lindt_text = generate_lindt(schema_object)
 ```
 
 ### Documentation Requirements
@@ -287,9 +268,9 @@ Each implementation should include:
    - Edge case handling
    - Performance benchmarks
 
-## 🔄 Versioning
+## Versioning
 
-TSSN follows [Semantic Versioning](https://semver.org/):
+LINDT follows [Semantic Versioning](https://semver.org/):
 
 - **MAJOR**: Breaking changes to specification
 - **MINOR**: New features, backward compatible
@@ -302,7 +283,7 @@ Breaking changes require:
 2. Deprecation period for removed features
 3. Community discussion and consensus
 
-## 💬 Communication
+## Communication
 
 - **GitHub Discussions**: General questions, ideas, announcements
 - **GitHub Issues**: Bug reports, specific problems
@@ -310,13 +291,9 @@ Breaking changes require:
 
 ### Code of Conduct
 
-- Be respectful and inclusive
-- Assume good intentions
-- Provide constructive feedback
-- Focus on the idea, not the person
-- Help newcomers feel welcome
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md). In short: be respectful, assume good intentions, and focus on the idea rather than the person.
 
-## 🏆 Recognition
+## Recognition
 
 Contributors will be:
 - Credited in release notes for their contributions
@@ -326,21 +303,21 @@ Significant contributions may result in:
 - Co-author credit in specification updates
 - Maintainer status for implementations
 
-## 📚 Resources
+## Resources
 
-- [TSSN Specification](TSSN-SPEC.md)
+- [LINDT Specification](LINDT-SPEC.md)
 - [Examples](EXAMPLES.md)
 - [Implementation Guide](IMPLEMENTATION.md)
-- [Discussion Forum](https://github.com/nemekath/TSSN/discussions)
-- [Issue Tracker](https://github.com/nemekath/TSSN/issues)
+- [Discussion Forum](https://github.com/nemekath/LINDT/discussions)
+- [Issue Tracker](https://github.com/nemekath/LINDT/issues)
 
-## ❓ Questions?
+## Questions?
 
 Don't hesitate to ask questions:
-- Open a [GitHub Discussion](https://github.com/nemekath/TSSN/discussions)
+- Open a [GitHub Discussion](https://github.com/nemekath/LINDT/discussions)
 - Comment on relevant issues or PRs
 - Reach out to maintainers
 
 ---
 
-Thank you for contributing to TSSN! Your efforts help make database schema representation better for everyone.
+Thank you for contributing to LINDT! Your efforts help make database schema representation better for everyone.

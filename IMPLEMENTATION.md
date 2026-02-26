@@ -1,30 +1,30 @@
-# TSSN Reference Implementation (Pseudocode)
+# LINDT Reference Implementation (Pseudocode)
 
-This document provides pseudocode for implementing TSSN parsers and generators. Use this as a reference when creating implementations in your language of choice.
+This document provides pseudocode for implementing LINDT parsers and generators. Use this as a reference when creating implementations in your language of choice.
 
 ## Parser Implementation
 
 ### Core Parser Structure
 
 ```python
-class TSSNParser:
-    """Parse TSSN text into structured schema objects"""
+class LINDTParser:
+    """Parse LINDT text into structured schema objects"""
     
     def __init__(self):
         self.current_line = 0
         self.lines = []
     
-    def parse(self, tssn_text: str) -> Schema:
+    def parse(self, lindt_text: str) -> Schema:
         """
-        Parse TSSN text and return Schema object
+        Parse LINDT text and return Schema object
         
         Args:
-            tssn_text: TSSN formatted string
+            lindt_text: LINDT formatted string
             
         Returns:
             Schema object with tables, columns, constraints
         """
-        self.lines = tssn_text.split('\n')
+        self.lines = lindt_text.split('\n')
         self.current_line = 0
         
         schema = Schema()
@@ -253,8 +253,8 @@ class TSSNParser:
 
 ## Generator Implementation
 
-class TSSNGenerator:
-    """Generate TSSN format from structured schema"""
+class LINDTGenerator:
+    """Generate LINDT format from structured schema"""
     
     def __init__(self, options: dict = None):
         self.options = options or {}
@@ -264,13 +264,13 @@ class TSSNGenerator:
     
     def generate(self, schema: Schema) -> str:
         """
-        Generate TSSN text from Schema object
+        Generate LINDT text from Schema object
         
         Args:
             schema: Schema object with tables and columns
             
         Returns:
-            TSSN formatted string
+            LINDT formatted string
         """
         output = []
         
@@ -282,14 +282,14 @@ class TSSNGenerator:
         
         # Generate each table
         for table in schema.tables:
-            tssn_table = self.generate_table(table)
-            output.append(tssn_table)
+            lindt_table = self.generate_table(table)
+            output.append(lindt_table)
             output.append("")  # Blank line between tables
         
         return '\n'.join(output).rstrip() + '\n'
     
     def generate_table(self, table: Table) -> str:
-        """Generate TSSN for a single table (Updated for v0.6.0)"""
+        """Generate LINDT for a single table (Updated for v0.6.0)"""
         lines = []
 
         # Add table-level comments
@@ -322,7 +322,7 @@ class TSSNGenerator:
         return '\n'.join(lines)
     
     def generate_column(self, column: Column) -> str:
-        """Generate TSSN for a single column (Updated for v0.7.0)"""
+        """Generate LINDT for a single column (Updated for v0.7.0)"""
         # Build column name - quote if contains special characters
         name = column.name
         if not re.match(r'^\w+$', name):
@@ -418,7 +418,7 @@ class TSSNGenerator:
 ## Type Mapper
 
 class TypeMapper:
-    """Map database-specific types to TSSN semantic types"""
+    """Map database-specific types to LINDT semantic types"""
     
     # Type mapping tables
     POSTGRES_TYPES = {
@@ -504,14 +504,14 @@ class TypeMapper:
     
     def map_type(self, sql_type: str, length: int = None) -> tuple:
         """
-        Map SQL type to TSSN semantic type (Updated for v0.6.0)
+        Map SQL type to LINDT semantic type (Updated for v0.6.0)
 
         Args:
             sql_type: Database-specific type name
             length: Optional length/precision
 
         Returns:
-            Tuple of (tssn_type, tssn_length, is_array)
+            Tuple of (lindt_type, lindt_length, is_array)
         """
         # Normalize type name
         sql_type = sql_type.lower()
@@ -531,13 +531,13 @@ class TypeMapper:
             return ('boolean', None, is_array)
 
         # Look up in mapping table
-        tssn_type = self.type_map.get(sql_type, 'string')
+        lindt_type = self.type_map.get(sql_type, 'string')
 
         # Determine if length should be preserved
         preserve_length = sql_type in ['varchar', 'nvarchar', 'char', 'nchar']
-        tssn_length = length if preserve_length else None
+        lindt_length = length if preserve_length else None
 
-        return (tssn_type, tssn_length, is_array)
+        return (lindt_type, lindt_length, is_array)
 
 
 ## Database Introspection (Example for PostgreSQL)
@@ -603,12 +603,12 @@ class DatabaseIntrospector:
             col_name, data_type, length, is_nullable, default = row
 
             # Map type (Updated for v0.6.0 - now returns 3 values)
-            tssn_type, tssn_length, is_array = mapper.map_type(data_type, length)
+            lindt_type, lindt_length, is_array = mapper.map_type(data_type, length)
 
             column = Column(
                 name=col_name,
-                type=tssn_type,
-                length=tssn_length,
+                type=lindt_type,
+                length=lindt_length,
                 nullable=(is_nullable == 'YES'),
                 is_array=is_array,  # New in v0.6.0
                 constraints=[]
@@ -672,18 +672,18 @@ class DatabaseIntrospector:
 
 ## Usage Example
 
-# Parse TSSN
-parser = TSSNParser()
-schema = parser.parse(tssn_text)
+# Parse LINDT
+parser = LINDTParser()
+schema = parser.parse(lindt_text)
 
-# Generate TSSN from database
+# Generate LINDT from database
 introspector = DatabaseIntrospector(db_connection)
 table = introspector.introspect_table('users')
 
-generator = TSSNGenerator()
-tssn_output = generator.generate_table(table)
+generator = LINDTGenerator()
+lindt_output = generator.generate_table(table)
 
-# Generate TSSN from structured data
+# Generate LINDT from structured data
 schema = Schema()
 table = Table(name='Users')
 table.add_column(Column(
@@ -694,8 +694,8 @@ table.add_column(Column(
 ))
 schema.add_table(table)
 
-tssn_output = generator.generate(schema)
-print(tssn_output)
+lindt_output = generator.generate(schema)
+print(lindt_output)
 # Output:
 # interface Users {
 #   id: int;              // PRIMARY KEY
@@ -753,7 +753,7 @@ This is pseudocode for reference. Real implementations should:
 
 ### v0.7.0 Implementation Notes
 
-This pseudocode has been updated for TSSN v0.7.0 with support for:
+This pseudocode has been updated for LINDT v0.7.0 with support for:
 
 - **Literal Union Types**: TypeScript-style unions for enum columns
   - Parser: `parse_union_type()` extracts values from `'a' | 'b' | 'c'` or `1 | 2 | 3`

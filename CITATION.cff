@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: "LINDT: LLM INterface for Database Tables"
+message: "If you use this specification, please cite it as below."
+type: software
+authors:
+  - family-names: Zimmer
+    given-names: Benjamin
+version: "0.7.0"
+date-released: "2025-11-26"
+license: MIT
+url: "https://github.com/nemekath/LINDT"
+repository-code: "https://github.com/nemekath/LINDT"
+keywords:
+  - database-schema
+  - llm
+  - specification
+  - token-efficiency
+  - schema-notation
+abstract: >-
+  A compact, TypeScript-inspired notation for describing database schemas,
+  designed to reduce token consumption by 40-60% in LLM context windows
+  while remaining immediately readable by developers and language models.

@@ -1,0 +1,71 @@
+name: Spec Change Proposal
+description: Propose a formal change to the LINDT specification (RFC-style)
+labels: ["proposal", "spec-change"]
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Proposal Title
+      placeholder: "e.g., Add temporal table syntax"
+    validations:
+      required: true
+
+  - type: textarea
+    id: sections
+    attributes:
+      label: Affected Sections
+      description: Which specification sections would need to change?
+      placeholder: "e.g., Section 2.2 (Data Type Mapping), Appendix A (Grammar)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this change needed? What problem does it solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: design
+    attributes:
+      label: Detailed Design
+      description: The complete proposed change with syntax examples.
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: grammar
+    attributes:
+      label: Grammar Changes
+      description: EBNF additions or modifications (if applicable).
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Backward Compatibility
+      description: Impact on existing parsers and generators.
+      placeholder: "e.g., Fully backward compatible -- new syntax is additive"
+    validations:
+      required: true
+
+  - type: textarea
+    id: token-efficiency
+    attributes:
+      label: Token Efficiency Impact
+      description: Measured or estimated impact on token consumption.
+    validations:
+      required: false
+
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Prior Art
+      description: Similar features in other formats (SQL, TypeScript, Prisma, GraphQL, etc.).
+    validations:
+      required: false

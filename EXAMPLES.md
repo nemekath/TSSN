@@ -1,6 +1,6 @@
-# TSSN Examples
+# LINDT Examples
 
-Focused examples for each specification feature. For the complete specification, see [TSSN-SPEC.md](TSSN-SPEC.md).
+Focused examples for each specification feature. For the complete specification, see [LINDT-SPEC.md](LINDT-SPEC.md).
 
 ## Table of Contents
 

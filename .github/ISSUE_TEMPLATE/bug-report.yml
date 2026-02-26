@@ -1,0 +1,79 @@
+name: Bug Report
+description: Report a spec inconsistency, ambiguity, or implementation issue
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: section
+    attributes:
+      label: Spec Section
+      description: Which section of the specification is affected?
+      options:
+        - "Section 1 - Introduction"
+        - "Section 2 - Syntax Specification"
+        - "Section 3 - Extended Annotations"
+        - "Section 4 - Complete Examples"
+        - "Section 5 - Implementation Guidelines"
+        - "Section 6 - Performance"
+        - "Section 7 - Interoperability"
+        - "Appendix A - Grammar (EBNF)"
+        - "Appendix B - Type Conversion"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clear description of the inconsistency or issue.
+      placeholder: Describe the problem...
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: LINDT code that demonstrates the issue.
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Spec Version
+      description: Which version of the LINDT specification?
+      value: "0.7.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: context
+    attributes:
+      label: Context
+      description: How did you encounter this issue?
+      options:
+        - "Reading the spec"
+        - "Building a parser"
+        - "Building a generator"
+        - "Using LINDT in production"
+        - "Other"
+    validations:
+      required: false

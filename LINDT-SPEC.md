@@ -1,20 +1,75 @@
-# TypeScript-Style Schema Notation (TSSN)
+# LLM INterface for Database Tables (LINDT)
 
-**Version:** 0.7.0
-**Status:** Draft Specification
-**Date:** 2025-11-26
-**Authors:** Benjamin Zimmer
-**License:** MIT
+## Status of This Document
+
+| Field | Value |
+|-------|-------|
+| **Version** | 0.7.0 |
+| **Status** | Draft Specification |
+| **Date** | 2025-11-26 |
+| **Authors** | Benjamin Zimmer |
+| **License** | MIT |
+| **Repository** | [github.com/nemekath/LINDT](https://github.com/nemekath/LINDT) |
+
+This is a **draft** specification. It is subject to change based on community feedback and implementation experience. Features marked as "Draft" in the Feature Status table may be modified without notice.
+
+### Feature Status
+
+| Feature | Section | Since | Status |
+|---------|---------|-------|--------|
+| Core syntax (interface, types) | 2.1--2.4 | v0.5.0 | Stable |
+| Multi-column constraints | 2.5 | v0.5.0 | Stable |
+| Vendor-specific type handling | 2.6 | v0.6.0 | Stable |
+| Schema namespaces | 2.7 | v0.6.0 | Stable |
+| Quoted identifiers | 2.8 | v0.6.0 | Stable |
+| Array types | 2.2.5 | v0.6.0 | Stable |
+| Literal union types | 2.2.6 | v0.7.0 | Draft |
+| Domain annotations | 3 | v0.5.0 | Stable |
+
+**Status definitions:** **Stable** -- unlikely to change; implementations can rely on this. **Draft** -- may change based on implementation feedback. **Experimental** -- subject to removal; not recommended for production parsers.
+
+## Table of Contents
+
+- [1. Introduction](#1-introduction)
+  - [1.1 Motivation](#11-motivation)
+  - [1.2 Design Goals](#12-design-goals)
+  - [1.3 Scope](#13-scope)
+  - [1.4 Notation Conventions](#14-notation-conventions)
+- [2. Syntax Specification](#2-syntax-specification)
+  - [2.1 Core Structure](#21-core-structure)
+  - [2.2 Data Type Mapping](#22-data-type-mapping)
+  - [2.3 Nullability](#23-nullability)
+  - [2.4 Constraints and Metadata](#24-constraints-and-metadata)
+  - [2.5 Complex Constraints](#25-complex-constraints)
+  - [2.6 Vendor-Specific Type Handling](#26-vendor-specific-type-handling)
+  - [2.7 Schema Namespaces](#27-schema-namespaces)
+  - [2.8 Quoted Identifiers](#28-quoted-identifiers)
+- [3. Extended Annotations](#3-extended-annotations)
+- [4. Complete Examples](#4-complete-examples)
+- [5. Implementation Guidelines](#5-implementation-guidelines)
+  - [5.1 Parser Requirements](#51-parser-requirements)
+  - [5.2 Generator Requirements](#52-generator-requirements)
+  - [5.3 Formatting Conventions](#53-formatting-conventions)
+  - [5.4 Conformance Levels](#54-conformance-levels)
+- [6. Performance Characteristics](#6-performance-characteristics)
+- [7. Interoperability](#7-interoperability)
+- [8. Use Cases](#8-use-cases)
+- [9. Limitations and Considerations](#9-limitations-and-considerations)
+- [10. Future Extensions](#10-future-extensions)
+- [11. References](#11-references)
+- [Appendix A: Grammar (EBNF)](#appendix-a-grammar-ebnf-style)
+- [Appendix B: Type Conversion Table](#appendix-b-type-conversion-table)
+- [Appendix C: License](#appendix-c-license)
 
 ## Abstract
 
-TypeScript-Style Schema Notation (TSSN) is a human-readable, token-efficient format for representing database table structures with their columns, types, and constraints. It uses semantic compression - similar to how JPEG preserves visual appearance while discarding pixel-perfect detail, TSSN preserves schema structure while discarding database-specific implementation details. This approach reduces token consumption by 40-60% compared to standard JSON representations while maintaining clarity and expressiveness. TSSN is optimized for AI language model consumption and developer readability.
+LLM INterface for Database Tables (LINDT) is a human-readable, token-efficient format for representing database table structures with their columns, types, and constraints. It uses semantic compression - similar to how JPEG preserves visual appearance while discarding pixel-perfect detail, LINDT preserves schema structure while discarding database-specific implementation details. This approach reduces token consumption by 40-60% compared to standard JSON representations while maintaining clarity and expressiveness. LINDT is optimized for AI language model consumption and developer readability.
 
 ## 1. Introduction
 
 ### 1.1 Motivation
 
-Traditional schema representations (JSON, XML, verbose DDL) suffer from high token costs when used in AI-assisted development workflows. A typical 50-column table schema can consume 2000+ tokens in standard JSON format. TSSN addresses this by leveraging the fact that language models are highly efficient at parsing code-like structures.
+Traditional schema representations (JSON, XML, verbose DDL) suffer from high token costs when used in AI-assisted development workflows. A typical 50-column table schema can consume 2000+ tokens in standard JSON format. LINDT addresses this by leveraging the fact that language models are highly efficient at parsing code-like structures.
 
 ### 1.2 Design Goals
 
@@ -26,48 +81,54 @@ Traditional schema representations (JSON, XML, verbose DDL) suffer from high tok
 
 ### 1.3 Scope
 
-TSSN is designed for schema *representation* and *communication*, not schema *definition* or *execution*.
+LINDT is designed for schema *representation* and *communication*, not schema *definition* or *execution*.
 
-Unlike lossless data serialization formats (JSON for data interchange, Protocol Buffers for structured data), TSSN uses semantic compression similar to JPEG - it preserves essential structure while discarding implementation details. This makes it ideal for:
+Unlike lossless data serialization formats (JSON for data interchange, Protocol Buffers for structured data), LINDT uses semantic compression similar to JPEG - it preserves essential structure while discarding implementation details. This makes it ideal for:
 - Documentation and human understanding
 - LLM context windows and code generation
 - Schema discussion and collaboration
 
-TSSN does not replace SQL DDL or migration tools, but complements them as a token-efficient communication layer.
+LINDT does not replace SQL DDL or migration tools, but complements them as a token-efficient communication layer.
 
 #### 1.3.1 Primary Use Case: Read Query Generation
 
-TSSN is optimized for enabling LLMs to write **read queries** (SELECT statements). The schema information preserved by TSSN is specifically chosen to support:
+LINDT is optimized for enabling LLMs to write **read queries** (SELECT statements). The schema information preserved by LINDT is specifically chosen to support:
 
 - Correct table and column references
 - Proper JOIN construction via foreign key relationships
 - Appropriate WHERE clause syntax based on column types
 - Understanding of nullability for IS NULL / IS NOT NULL conditions
 
-TSSN intentionally discards information irrelevant to read queries (storage engines, precise decimal scales, index implementations) to maximize token efficiency.
+LINDT intentionally discards information irrelevant to read queries (storage engines, precise decimal scales, index implementations) to maximize token efficiency.
 
-#### 1.3.2 Positioning: When to Use TSSN
+#### 1.3.2 Positioning: When to Use LINDT
 
-TSSN fills a specific niche in the schema representation landscape:
+LINDT fills a specific niche in the schema representation landscape:
 
 | Environment | Recommended Approach |
 |-------------|---------------------|
 | GraphQL API available | Use GraphQL SDL — already optimized for typed queries |
 | Modern ORM (Prisma, etc.) | Use native schema format — tooling already exists |
-| Legacy SQL without API layer | **Use TSSN** — lightweight, no infrastructure changes |
-| Token-constrained LLM context | **Use TSSN** — maximum information density |
-| DDL generation / migrations | Use SQL DDL — TSSN is lossy by design |
+| Legacy SQL without API layer | **Use LINDT** — lightweight, no infrastructure changes |
+| Token-constrained LLM context | **Use LINDT** — maximum information density |
+| DDL generation / migrations | Use SQL DDL — LINDT is lossy by design |
 
-TSSN is particularly valuable for:
+LINDT is particularly valuable for:
 - Enterprise systems with large legacy databases
 - Environments where adding GraphQL infrastructure is impractical
 - MCP (Model Context Protocol) servers providing database access to LLMs
+
+### 1.4 Notation Conventions
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt) and [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174.html).
+
+These keywords appear in **UPPER CASE** when used with their RFC 2119 meaning. When these words appear in lower case, they carry their ordinary English meaning.
 
 ## 2. Syntax Specification
 
 ### 2.1 Core Structure
 
-TSSN uses TypeScript interface-like syntax:
+A LINDT document MUST contain one or more interface declarations. Each interface declaration MUST begin with the keyword `interface` followed by an identifier and a brace-enclosed body:
 
 ```typescript
 interface TableName {
@@ -79,7 +140,7 @@ interface TableName {
 
 ### 2.2 Data Type Mapping
 
-TSSN uses abstract type categories rather than database-specific types. These categories represent broad type families that map to concrete SQL types:
+LINDT uses abstract type categories rather than database-specific types. These categories represent broad type families that map to concrete SQL types. Parsers MUST recognize all base types listed in Sections 2.2.1 through 2.2.4. Generators SHOULD use the most specific type available (e.g., `date` rather than `string` for date columns).
 
 #### 2.2.1 Numeric Types
 
@@ -144,7 +205,7 @@ WHERE 'javascript' = ANY(tags)      -- Correct array operation
 
 **Database Mapping:**
 
-| TSSN | PostgreSQL | SQL Server | MySQL |
+| LINDT | PostgreSQL | SQL Server | MySQL |
 |------|------------|------------|-------|
 | `string[]` | `TEXT[]` | — | — |
 | `int[]` | `INTEGER[]` | — | — |
@@ -154,7 +215,7 @@ WHERE 'javascript' = ANY(tags)      -- Correct array operation
 
 #### 2.2.6 Literal Union Types
 
-For columns with a fixed set of allowed values (enums), TSSN supports TypeScript-style literal union types. This provides LLMs with exact valid values, reducing hallucination in WHERE clauses:
+For columns with a fixed set of allowed values (enums), LINDT supports TypeScript-style literal union types. This provides LLMs with exact valid values, reducing hallucination in WHERE clauses:
 
 ```typescript
 interface Orders {
@@ -206,7 +267,7 @@ category_id: int;           // FK -> Categories(id)
 
 Literal unions map to the underlying base type with a CHECK constraint:
 
-| TSSN | SQL Equivalent |
+| LINDT | SQL Equivalent |
 |------|----------------|
 | `'a' \| 'b' \| 'c'` | `VARCHAR CHECK (col IN ('a','b','c'))` |
 | `1 \| 2 \| 3` | `INT CHECK (col IN (1,2,3))` |
@@ -215,7 +276,7 @@ Literal unions map to the underlying base type with a CHECK constraint:
 
 ### 2.3 Nullability
 
-The `?` suffix indicates nullable columns:
+The `?` suffix indicates nullable columns. The `?` MUST be placed immediately after the column name, before the `:` separator. Columns without `?` MUST be interpreted as NOT NULL.
 
 ```typescript
 interface Users {
@@ -226,7 +287,7 @@ interface Users {
 
 ### 2.4 Constraints and Metadata
 
-Constraints are documented using inline comments:
+Constraints are documented using inline comments. Parsers MUST preserve inline comments verbatim. Parsers SHOULD recognize the standard constraint patterns listed in Section 2.4.1.
 
 ```typescript
 interface Users {
@@ -248,7 +309,7 @@ interface Users {
 
 ### 2.5 Complex Constraints
 
-Multi-column constraints are documented at the interface level:
+Multi-column constraints MUST appear as comments immediately preceding the interface declaration:
 
 ```typescript
 // UNIQUE(user_id, organization_id)
@@ -264,15 +325,15 @@ interface Memberships {
 
 ### 2.6 Vendor-Specific Type Handling
 
-TSSN maintains database-agnosticism by mapping vendor-specific types to semantic equivalents from the core type system. This ensures parsers remain lightweight and implementations stay interoperable across different database systems.
+LINDT maintains database-agnosticism by mapping vendor-specific types to semantic equivalents from the core type system. This ensures parsers remain lightweight and implementations stay interoperable across different database systems.
 
 #### 2.6.1 Mapping Principle
 
-When a database-specific type has no direct TSSN equivalent, map it to the closest semantic base type. Use `@format` annotations to preserve additional context when needed.
+When a database-specific type has no direct LINDT equivalent, map it to the closest semantic base type. Use `@format` annotations to preserve additional context when needed.
 
 #### 2.6.2 Common Vendor Type Mappings
 
-| Vendor Type | Database | TSSN Type | Annotation | Rationale |
+| Vendor Type | Database | LINDT Type | Annotation | Rationale |
 |-------------|----------|-----------|------------|-----------|
 | `XML` | SQL Server, PostgreSQL | `text` | `@format: xml` | Structured text, potentially large |
 | `GEOGRAPHY` | SQL Server | `string` | `@format: wkt` | WKT representation is token-efficient |
@@ -301,12 +362,12 @@ interface GeoData {
 
 #### 2.6.4 Implementation Guidance
 
-1. **Generators** SHOULD map vendor types to TSSN base types according to this table
+1. **Generators** SHOULD map vendor types to LINDT base types according to this table
 2. **Generators** MAY include `@format` annotations for round-trip fidelity
 3. **Parsers** MUST accept any base type regardless of `@format` annotation
 4. **Parsers** MAY use `@format` hints for validation or transformation
 
-**Note**: The `@format` annotation is informational. TSSN parsers are not required to validate format compliance—this responsibility lies with the consuming application.
+**Note**: The `@format` annotation is informational. LINDT parsers are not required to validate format compliance—this responsibility lies with the consuming application.
 
 ### 2.7 Schema Namespaces
 
@@ -357,7 +418,7 @@ JOIN auth.users u ON o.user_id = u.id
 
 ### 2.8 Quoted Identifiers
 
-Legacy databases often contain identifiers with spaces, reserved words, or special characters. TSSN uses backtick quoting to represent these "dirty" identifiers, enabling LLMs to generate correctly escaped queries:
+Legacy databases often contain identifiers with spaces, reserved words, or special characters. LINDT uses backtick quoting to represent these "dirty" identifiers, enabling LLMs to generate correctly escaped queries:
 
 ```typescript
 interface `Order Details` {
@@ -385,9 +446,9 @@ SELECT "Order ID", "Product Name" FROM "Order Details"
 
 #### 2.8.1 Escaping Rules
 
-- Backticks wrap identifiers containing spaces, reserved words, or special characters
-- Literal backticks within identifiers are escaped by doubling: ``` `` ```
-- Standard identifiers (letters, digits, underscores) do not require quoting
+- Identifiers containing spaces, reserved words, or special characters MUST be wrapped in backticks
+- Literal backticks within identifiers MUST be escaped by doubling: ``` `` ```
+- Identifiers matching `[a-zA-Z_][a-zA-Z0-9_]*` MUST NOT require quoting
 
 #### 2.8.2 When to Use Quoted Identifiers
 
@@ -400,13 +461,13 @@ SELECT "Order ID", "Product Name" FROM "Order Details"
 | `Order` | Maybe | Reserved word (context-dependent) |
 | `123Orders` | Yes | Starts with digit |
 
-**Note**: Quoted identifiers indicate a schema design that predates modern naming conventions. While TSSN supports them for compatibility, new schemas should prefer snake_case or PascalCase identifiers.
+**Note**: Quoted identifiers indicate a schema design that predates modern naming conventions. While LINDT supports them for compatibility, new schemas should prefer snake_case or PascalCase identifiers.
 
 ## 3. Extended Annotations
 
 ### 3.1 Domain-Specific Metadata
 
-TSSN supports domain-specific annotations through structured comments:
+LINDT supports domain-specific annotations through structured comments:
 
 ```typescript
 // @table: users
@@ -445,7 +506,7 @@ CREATE TABLE products (
 );
 ```
 
-**TSSN:**
+**LINDT:**
 ```typescript
 interface Products {
   id: int;              // PRIMARY KEY, AUTO_INCREMENT
@@ -458,7 +519,7 @@ interface Products {
 
 ### 4.2 Complex Schema with Relations
 
-**TSSN:**
+**LINDT:**
 ```typescript
 interface Organizations {
   id: int;              // PRIMARY KEY, AUTO_INCREMENT
@@ -489,7 +550,7 @@ interface ProjectMemberships {
 
 ### 5.1 Parser Requirements
 
-A compliant TSSN parser MUST:
+A compliant LINDT parser MUST:
 
 1. Parse interface declarations with valid TypeScript-style identifiers
 2. Recognize `?` suffix for nullable columns
@@ -499,7 +560,7 @@ A compliant TSSN parser MUST:
 
 ### 5.2 Generator Requirements
 
-A compliant TSSN generator SHOULD:
+A compliant LINDT generator SHOULD:
 
 1. Map database-specific types to abstract type categories according to Section 2.2
 2. Preserve constraint information in comments
@@ -509,11 +570,11 @@ A compliant TSSN generator SHOULD:
 
 ### 5.3 Formatting Conventions
 
-- **Indentation**: 2 spaces
-- **Column Alignment**: Align types at column 25 (recommended, not required)
-- **Comment Alignment**: Align comments at column 45 (recommended, not required)
-- **Blank Lines**: One blank line between interfaces
-- **Column Ordering**: Primary keys first, data columns in the middle, timestamp columns (created_at, updated_at) last
+- **Indentation**: 2 spaces (RECOMMENDED)
+- **Column Alignment**: Align types at column 25 (RECOMMENDED)
+- **Comment Alignment**: Align comments at column 45 (RECOMMENDED)
+- **Blank Lines**: One blank line between interfaces (RECOMMENDED)
+- **Column Ordering**: Generators SHOULD order columns as: primary keys first, data columns in the middle, timestamp columns (created_at, updated_at) last
 
 Example:
 ```typescript
@@ -526,6 +587,42 @@ interface Users {
 }
 ```
 
+### 5.4 Conformance Levels
+
+LINDT defines three conformance levels for implementations:
+
+#### 5.4.1 Level 1: Core (REQUIRED)
+
+A Level 1 compliant implementation MUST support:
+- Interface declarations with simple identifiers
+- All base types from Section 2.2 (`int`, `string`, `decimal`, `float`, `number`, `char`, `text`, `datetime`, `date`, `time`, `boolean`, `blob`, `uuid`, `json`)
+- Type length parameters: `string(n)`, `char(n)`
+- Nullable columns via `?` suffix
+- Inline comment extraction
+
+#### 5.4.2 Level 2: Standard (RECOMMENDED)
+
+A Level 2 compliant implementation MUST support all Level 1 features and additionally:
+- Constraint pattern recognition (PRIMARY KEY, FOREIGN KEY, UNIQUE, INDEX, AUTO_INCREMENT, DEFAULT) as described in Section 2.4
+- Multi-column constraints via interface-level comments (Section 2.5)
+- Array type suffix `[]` (Section 2.2.5)
+- Quoted identifiers via backtick syntax (Section 2.8)
+- Literal union types (Section 2.2.6)
+
+#### 5.4.3 Level 3: Extended (OPTIONAL)
+
+A Level 3 compliant implementation MAY support:
+- Domain-specific annotations (`@schema`, `@format`, `@enum`, etc.) from Section 3
+- Vendor-specific type mapping (Section 2.6)
+- Schema namespace resolution (Section 2.7)
+- Cross-schema foreign key references
+
+#### 5.4.4 Compliance Reporting
+
+Implementations SHOULD declare their conformance level in their documentation using the format:
+
+> This implementation is LINDT Level 2 compliant (v0.7.0).
+
 ## 6. Performance Characteristics
 
 ### 6.1 Token Efficiency Benchmark
@@ -536,13 +633,13 @@ Test scenario: 20-column table with typical constraints*
 |--------|-------------------|-----------|
 | Verbose JSON | 450 | 0% (baseline) |
 | Minified JSON | 300 | 33% |
-| **TSSN** | **180** | **60%** |
+| **LINDT** | **180** | **60%** |
 
 *Token counts measured using the GPT-4 tokenizer (cl100k_base). Actual reduction varies based on schema complexity, constraint density, and specific tokenizer used.
 
 ### 6.2 Readability Metrics
 
-- **Human Comprehension**: Developers familiar with TypeScript can quickly understand TSSN syntax
+- **Human Comprehension**: Developers familiar with TypeScript can quickly understand LINDT syntax
 - **LLM Efficiency**: Language models trained on code efficiently parse interface-style syntax
 - **Maintainability**: Changes to schema are clearly visible in diff tools
 
@@ -550,9 +647,9 @@ Test scenario: 20-column table with typical constraints*
 
 ### 7.1 JSON Schema Mapping
 
-TSSN can be converted **to** JSON Schema (one-way conversion):
+LINDT can be converted **to** JSON Schema (one-way conversion):
 
-**TSSN:**
+**LINDT:**
 ```typescript
 interface User {
   id: int;              // PRIMARY KEY
@@ -572,11 +669,11 @@ interface User {
 }
 ```
 
-**Note**: Conversion from JSON Schema to TSSN requires additional database-specific metadata (primary keys, foreign keys, indexes) that JSON Schema does not capture.
+**Note**: Conversion from JSON Schema to LINDT requires additional database-specific metadata (primary keys, foreign keys, indexes) that JSON Schema does not capture.
 
 ### 7.2 SQL DDL Generation
 
-TSSN representations can generate SQL DDL with database-specific adapters:
+LINDT representations can generate SQL DDL with database-specific adapters:
 
 ```typescript
 // Target: PostgreSQL
@@ -616,9 +713,9 @@ CREATE TABLE users (
 
 ### 9.1 Lossy Compression Model
 
-TSSN employs **semantic compression** - similar to how JPEG preserves visual appearance while discarding pixel-perfect detail, TSSN preserves schema structure while discarding database-specific implementation details.
+LINDT employs **semantic compression** - similar to how JPEG preserves visual appearance while discarding pixel-perfect detail, LINDT preserves schema structure while discarding database-specific implementation details.
 
-**What TSSN Preserves:**
+**What LINDT Preserves:**
 - Table and column names
 - Data types (semantic level)
 - Nullability
@@ -626,7 +723,7 @@ TSSN employs **semantic compression** - similar to how JPEG preserves visual app
 - Unique constraints and indexes
 - Basic default values
 
-**What TSSN Discards:**
+**What LINDT Discards:**
 - Database-specific type parameters (e.g., `DECIMAL(10,2)` becomes `decimal`)
 - Storage engines (e.g., `InnoDB`, `MyISAM`)
 - Collations and character sets
@@ -636,11 +733,11 @@ TSSN employs **semantic compression** - similar to how JPEG preserves visual app
 - Index types (BTREE, HASH, etc.)
 - Exact constraint enforcement mechanisms
 
-This lossy approach is intentional - TSSN prioritizes token efficiency and human readability over bit-perfect database reconstruction.
+This lossy approach is intentional - LINDT prioritizes token efficiency and human readability over bit-perfect database reconstruction.
 
 ### 9.2 Not a DDL Replacement
 
-TSSN is a **representation** format, not a **definition** language. It cannot:
+LINDT is a **representation** format, not a **definition** language. It cannot:
 - Execute schema changes
 - Enforce constraints
 - Generate indexes automatically
@@ -648,14 +745,14 @@ TSSN is a **representation** format, not a **definition** language. It cannot:
 
 ### 9.3 Use Case Fit
 
-**TSSN is ideal for:**
+**LINDT is ideal for:**
 - Schema documentation and communication
 - LLM context windows
 - Understanding database structure
 - Code generation guidance
 - API documentation
 
-**TSSN is NOT suitable for:**
+**LINDT is NOT suitable for:**
 - Database migration scripts (use proper DDL)
 - Exact schema replication
 - Production deployment automation
@@ -663,7 +760,7 @@ TSSN is a **representation** format, not a **definition** language. It cannot:
 
 ### 9.4 Ambiguity Resolution
 
-When mapping from TSSN back to SQL:
+When mapping from LINDT back to SQL:
 - Type length parameters may need database-specific interpretation
 - Constraint enforcement depends on target database
 - Default values may need translation
@@ -680,12 +777,19 @@ When mapping from TSSN back to SQL:
 
 ### 10.2 Community Contributions
 
-TSSN is designed to be extended by the community. Proposed extensions should maintain:
+LINDT is designed to be extended by the community. Proposed extensions should maintain:
 - Token efficiency
 - Backward compatibility
 - Clear semantics
 
 ## 11. References
+
+### Normative References
+
+- [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt): Key words for use in RFCs to Indicate Requirement Levels
+- [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174.html): Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words
+
+### Informative References
 
 - TypeScript Interface Syntax: [https://www.typescriptlang.org/](https://www.typescriptlang.org/)
 - JSON Schema Specification: [https://json-schema.org/](https://json-schema.org/)
@@ -734,8 +838,8 @@ newline         = "\n" | "\r\n" | "\r"
 
 ## Appendix B: Type Conversion Table
 
-### SQL Server → TSSN
-| SQL Server | TSSN |
+### SQL Server → LINDT
+| SQL Server | LINDT |
 |------------|------|
 | INT, BIGINT, SMALLINT | int |
 | VARCHAR, NVARCHAR | string |
@@ -744,8 +848,8 @@ newline         = "\n" | "\r\n" | "\r"
 | DECIMAL, MONEY | decimal |
 | VARBINARY, IMAGE | blob |
 
-### PostgreSQL → TSSN
-| PostgreSQL | TSSN |
+### PostgreSQL → LINDT
+| PostgreSQL | LINDT |
 |------------|------|
 | INTEGER, BIGINT | int |
 | VARCHAR, TEXT | string |
@@ -758,8 +862,8 @@ newline         = "\n" | "\r\n" | "\r"
 | INTEGER[] | int[] |
 | JSONB[] | json[] |
 
-### MySQL → TSSN
-| MySQL | TSSN |
+### MySQL → LINDT
+| MySQL | LINDT |
 |--------|------|
 | INT, BIGINT | int |
 | VARCHAR, TEXT | string |
@@ -797,4 +901,4 @@ SOFTWARE.
 ---
 
 **For the latest version of this specification, see:**
-[https://github.com/nemekath/TSSN](https://github.com/nemekath/TSSN)
+[https://github.com/nemekath/LINDT](https://github.com/nemekath/LINDT)
