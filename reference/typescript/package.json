@@ -1,0 +1,29 @@
+{
+  "name": "@lindt/parser",
+  "version": "0.7.0",
+  "description": "LINDT (LLM INterface for Database Tables) reference parser — Level 3 conformant",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "~5.7.0",
+    "vitest": "~3.0.0",
+    "@vitest/coverage-v8": "~3.0.0"
+  }
+}

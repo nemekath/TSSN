@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the TSSN specification will be documented in this file.
+All notable changes to the LINDT specification will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -40,13 +40,13 @@ Literal unions transform CHECK constraints from comments (metadata) into types (
   - Support for identifiers with spaces, reserved words, or special characters
   - Escaping rules (double backticks for literal backticks)
   - Database-specific escaping guidance (SQL Server brackets, MySQL backticks, PostgreSQL quotes)
-- **Section 2.6: Vendor-Specific Type Handling** - Guidelines for mapping database-specific types to TSSN base types
+- **Section 2.6: Vendor-Specific Type Handling** - Guidelines for mapping database-specific types to LINDT base types
   - Mapping principle for vendor-agnostic type handling
   - Common vendor type mappings table (SQL Server, PostgreSQL)
   - `@format` annotation pattern for preserving semantic context
   - Implementation guidance for generators and parsers
-- **Section 1.3.1: Primary Use Case** - Clarified that TSSN is optimized for read query (SELECT) generation
-- **Section 1.3.2: Positioning** - Added guidance on when to use TSSN vs. alternatives (GraphQL, ORM schemas, DDL)
+- **Section 1.3.1: Primary Use Case** - Clarified that LINDT is optimized for read query (SELECT) generation
+- **Section 1.3.2: Positioning** - Added guidance on when to use LINDT vs. alternatives (GraphQL, ORM schemas, DDL)
 - **Section 2.7: Schema Namespaces** - Support for multi-schema databases via `@schema` annotation
   - Default schema behavior (dbo, public)
   - Cross-schema foreign key references
@@ -54,7 +54,7 @@ Literal unions transform CHECK constraints from comments (metadata) into types (
 ### Changed
 - **EBNF Grammar** - Updated to include array suffix (`[]`) and quoted identifiers (backticks)
 - **Appendix B** - Added PostgreSQL array type mappings (TEXT[], INTEGER[], JSONB[])
-- **README.md** - Removed fictional implementation references; TSSN is draft-only with no reference implementations yet
+- **README.md** - Removed fictional implementation references; LINDT is draft-only with no reference implementations yet
 - **EXAMPLES.md** - Added examples for array types (Section 3) and quoted identifiers (Section 9)
 
 ## [0.5.0] - 2025-11-20 (Draft)
@@ -79,7 +79,7 @@ Literal unions transform CHECK constraints from comments (metadata) into types (
 - MIT License
 
 ### Documentation
-- Complete specification document (TSSN-SPEC.md)
+- Complete specification document (LINDT-SPEC.md)
 - README with quick start and examples
 - Contributing guidelines
 - Reference implementation pseudocode
@@ -91,7 +91,7 @@ Literal unions transform CHECK constraints from comments (metadata) into types (
 
 ### Version 0.5.0 - Initial Draft Release
 
-This is the initial draft release of TSSN (TypeScript-Style Schema Notation). The specification is in draft status and subject to changes based on community feedback.
+This is the initial draft release of LINDT (LLM INterface for Database Tables). The specification is in draft status and subject to changes based on community feedback.
 
 **Key Features:**
 - **Token Efficient**: 40-60% reduction in token usage compared to JSON
@@ -113,7 +113,7 @@ We are seeking community feedback on the specification. Please see CONTRIBUTING.
 
 ## Version Numbering
 
-TSSN follows Semantic Versioning (SemVer):
+LINDT follows Semantic Versioning (SemVer):
 
 - **MAJOR** version (X.0.0): Incompatible changes to specification
   - Changes that would break existing parsers
@@ -191,7 +191,12 @@ The following features are under discussion and consideration for future version
 ---
 
 For detailed discussions about future versions, see:
-- [GitHub Discussions](https://github.com/nemekath/TSSN/discussions)
-- [Issue Tracker](https://github.com/nemekath/TSSN/issues)
+- [GitHub Discussions](https://github.com/nemekath/LINDT/discussions)
+- [Issue Tracker](https://github.com/nemekath/LINDT/issues)
 
 **Note**: Dates and version numbers in the Unreleased and future sections are tentative and subject to change based on development progress and community feedback.
+
+[Unreleased]: https://github.com/nemekath/LINDT/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/nemekath/LINDT/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/nemekath/LINDT/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/nemekath/LINDT/releases/tag/v0.5.0
