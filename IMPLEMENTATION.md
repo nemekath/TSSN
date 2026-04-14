@@ -16,54 +16,129 @@ class TSSNParser:
     
     def parse(self, tssn_text: str) -> Schema:
         """
-        Parse TSSN text and return Schema object
-        
+        Parse TSSN text and return Schema object (Updated for v0.8.0)
+
         Args:
             tssn_text: TSSN formatted string
-            
+
         Returns:
-            Schema object with tables, columns, constraints
+            Schema object with tables, views, type aliases, constraints
         """
         self.lines = tssn_text.split('\n')
         self.current_line = 0
-        
+
         schema = Schema()
-        
+
         while self.current_line < len(self.lines):
             line = self.lines[self.current_line].strip()
-            
+
             # Skip empty lines
             if not line:
                 self.current_line += 1
                 continue
-            
+
+            # --- NEW in v0.8.0: Parse type alias declaration ---
+            # type OrderStatus = 'pending' | 'shipped' | 'delivered';
+            if line.startswith('type '):
+                alias = self.parse_type_alias(line)
+                schema.add_type_alias(alias)
+                self.current_line += 1
+                continue
+
+            # --- NEW in v0.8.0: Parse view declaration ---
+            if line.startswith('view '):
+                view = self.parse_interface(kind='view')
+                schema.add_view(view)
+
             # Parse interface (table) declaration
-            if line.startswith('interface'):
-                table = self.parse_interface()
+            elif line.startswith('interface'):
+                table = self.parse_interface(kind='table')
                 schema.add_table(table)
-            
+
             # Store standalone comments (schema-level metadata)
             elif line.startswith('//'):
                 comment = self.parse_comment(line)
                 schema.add_metadata(comment)
-            
+
             self.current_line += 1
-        
+
+        # --- NEW in v0.8.0: Resolve alias references in columns ---
+        self.resolve_aliases(schema)
+
         return schema
+
+    def parse_type_alias(self, line: str) -> TypeAlias:
+        """
+        Parse a top-level type alias declaration (New in v0.8.0)
+
+        Format: type Identifier = type_expression;
+
+        Examples:
+            type OrderStatus = 'pending' | 'shipped' | 'delivered';
+            type Priority = 1 | 2 | 3;
+            type ShortCode = string(10);
+            type Tags = string[];
+        """
+        # Strip 'type ' prefix and trailing semicolon
+        body = line[len('type '):].rstrip(';').strip()
+        match = re.match(r'^(\w+)\s*=\s*(.+)$', body)
+        if not match:
+            raise ParseError(f"Invalid type alias at line {self.current_line}: {line}")
+
+        name = match.group(1)
+        rhs = match.group(2).strip()
+
+        # Reject forward references to other aliases - aliases MUST be concrete
+        # The resolver will verify this post-parse.
+        return TypeAlias(name=name, raw_rhs=rhs)
+
+    def resolve_aliases(self, schema: Schema) -> None:
+        """
+        Resolve alias references after the full schema is parsed (v0.8.0).
+
+        For every column whose raw type looks like a known alias name,
+        expand it to the alias's underlying type expression.
+        """
+        alias_map = {a.name: a for a in schema.type_aliases}
+
+        def resolve_column(col: Column) -> None:
+            if col.type in alias_map:
+                alias = alias_map[col.type]
+                # Re-parse the alias RHS using the normal type parser
+                col.alias_name = alias.name  # Preserve for round-trip
+                self.apply_type_expression(col, alias.raw_rhs)
+
+        for table in schema.tables:
+            for col in table.columns:
+                resolve_column(col)
+        for view in schema.views:
+            for col in view.columns:
+                resolve_column(col)
     
-    def parse_interface(self) -> Table:
-        """Parse an interface declaration into a Table object (v0.6.0)"""
+    def parse_interface(self, kind: str = 'table') -> Table:
+        """
+        Parse an interface or view declaration (Updated for v0.8.0)
+
+        Args:
+            kind: 'table' for `interface`, 'view' for `view`
+        """
         line = self.lines[self.current_line]
 
-        # Extract table name - supports both simple and quoted identifiers
-        # Pattern: interface `Quoted Name` { OR interface SimpleName {
-        match = re.match(r'interface\s+(?:`([^`]+)`|(\w+))\s*{', line)
+        # Extract name - supports both simple and quoted identifiers
+        # Pattern: (interface|view) `Quoted Name` { OR SimpleName {
+        keyword = 'view' if kind == 'view' else 'interface'
+        match = re.match(
+            rf'{keyword}\s+(?:`([^`]+)`|(\w+))\s*{{',
+            line
+        )
         if not match:
-            raise ParseError(f"Invalid interface declaration at line {self.current_line}")
+            raise ParseError(
+                f"Invalid {keyword} declaration at line {self.current_line}"
+            )
 
         # Name is either group 1 (quoted) or group 2 (simple)
         table_name = match.group(1) if match.group(1) else match.group(2)
-        table = Table(name=table_name)
+        table = Table(name=table_name, kind=kind)
         
         # Parse preceding comments (table-level metadata)
         table.metadata = self.parse_preceding_comments()
@@ -192,34 +267,37 @@ class TSSNParser:
         return values
     
     def parse_constraints(self, comment: str) -> list:
-        """Extract structured constraints from comment text"""
+        """Extract structured constraints from comment text (Updated for v0.8.0)"""
         constraints = []
-        
+
         # Primary key
         if re.search(r'\bPRIMARY\s+KEY\b|\bPK\b', comment, re.IGNORECASE):
             constraints.append(Constraint(type='PRIMARY_KEY'))
-        
+
         # Unique
         if re.search(r'\bUNIQUE\b', comment, re.IGNORECASE):
             constraints.append(Constraint(type='UNIQUE'))
-        
-        # Foreign key
-        fk_match = re.search(r'FK\s*->\s*(\w+)\((\w+)\)', comment, re.IGNORECASE)
+
+        # Foreign key - now supports cross-schema references (schema.Table(col))
+        fk_match = re.search(
+            r'FK\s*->\s*(?:(\w+)\.)?(\w+)\((\w+)\)', comment, re.IGNORECASE
+        )
         if fk_match:
             constraints.append(Constraint(
                 type='FOREIGN_KEY',
-                reference_table=fk_match.group(1),
-                reference_column=fk_match.group(2)
+                reference_schema=fk_match.group(1),  # None if unqualified
+                reference_table=fk_match.group(2),
+                reference_column=fk_match.group(3)
             ))
-        
+
         # Index
         if re.search(r'\bINDEX\b', comment, re.IGNORECASE):
             constraints.append(Constraint(type='INDEX'))
-        
+
         # Auto increment
         if re.search(r'\bAUTO_INCREMENT\b|\bIDENTITY\b', comment, re.IGNORECASE):
             constraints.append(Constraint(type='AUTO_INCREMENT'))
-        
+
         # Default value
         default_match = re.search(r'DEFAULT\s+(.+?)(?:,|$)', comment, re.IGNORECASE)
         if default_match:
@@ -227,8 +305,41 @@ class TSSNParser:
                 type='DEFAULT',
                 value=default_match.group(1).strip()
             ))
-        
+
+        # --- NEW in v0.8.0: @computed annotation ---
+        # Forms: "@computed" or "@computed: <expression>"
+        computed_match = re.search(
+            r'@computed(?:\s*:\s*(.+?))?(?:,|$)', comment
+        )
+        if computed_match:
+            constraints.append(Constraint(
+                type='COMPUTED',
+                value=(computed_match.group(1) or '').strip() or None
+            ))
+
         return constraints
+
+    def parse_interface_level_constraint(self, comment: str) -> Constraint:
+        """
+        Parse multi-column constraints at interface level (Updated for v0.8.0)
+
+        Recognized forms:
+            PK(col1, col2, ...)       -> composite primary key (NEW in v0.8.0)
+            UNIQUE(col1, col2, ...)   -> composite unique
+            INDEX(col1, col2, ...)    -> composite index
+        """
+        m = re.match(r'\s*(PK|UNIQUE|INDEX)\s*\(([^)]+)\)', comment, re.IGNORECASE)
+        if not m:
+            return None
+
+        kind = m.group(1).upper()
+        cols = [c.strip() for c in m.group(2).split(',')]
+        type_map = {
+            'PK': 'COMPOSITE_PRIMARY_KEY',
+            'UNIQUE': 'COMPOSITE_UNIQUE',
+            'INDEX': 'COMPOSITE_INDEX',
+        }
+        return Constraint(type=type_map[kind], columns=cols)
     
     def parse_preceding_comments(self) -> list:
         """Parse comments that appear before current position"""
@@ -708,36 +819,66 @@ print(tssn_output)
 class Schema:
     def __init__(self):
         self.tables = []
+        self.views = []            # v0.8.0: first-class views
+        self.type_aliases = []     # v0.8.0: type aliases
         self.metadata = []
 
+    def add_table(self, t): self.tables.append(t)
+    def add_view(self, v): self.views.append(v)
+    def add_type_alias(self, a): self.type_aliases.append(a)
+    def add_metadata(self, m): self.metadata.append(m)
+
 class Table:
-    def __init__(self, name: str):
+    def __init__(self, name: str, kind: str = 'table'):
         self.name = name
+        self.kind = kind           # v0.8.0: 'table' or 'view'
         self.columns = []
         self.metadata = []
         self.constraint_comments = []
+        self.composite_pk = None   # v0.8.0: list of column names or None
+        self.materialized = False  # v0.8.0: set by @materialized annotation
+        self.readonly = None       # v0.8.0: True/False/None (views only)
+
+class TypeAlias:
+    """v0.8.0: Reusable type definition (literal union, sized type, array)"""
+    def __init__(self, name: str, raw_rhs: str):
+        self.name = name           # e.g. 'OrderStatus'
+        self.raw_rhs = raw_rhs     # e.g. "'pending' | 'shipped' | 'delivered'"
 
 class Column:
     def __init__(self, name: str, type: str, length: int = None,
                  nullable: bool = True, is_array: bool = False,
-                 union_values: list = None,  # New in v0.7.0
+                 union_values: list = None,     # v0.7.0
+                 alias_name: str = None,        # v0.8.0: originating alias
                  constraints: list = None, comment: str = None):
         self.name = name
         self.type = type
         self.length = length
         self.nullable = nullable
-        self.is_array = is_array      # v0.6.0: True for array types like string[]
+        self.is_array = is_array       # v0.6.0: True for array types like string[]
         self.union_values = union_values  # v0.7.0: ['a','b','c'] or [1,2,3]
+        self.alias_name = alias_name   # v0.8.0: Preserves type alias name for round-trip
         self.constraints = constraints or []
         self.comment = comment
 
+    @property
+    def is_computed(self) -> bool:
+        """v0.8.0: True if column has @computed annotation"""
+        return any(c.type == 'COMPUTED' for c in self.constraints)
+
 class Constraint:
-    def __init__(self, type: str, reference_table: str = None, 
-                 reference_column: str = None, value: str = None):
+    def __init__(self, type: str,
+                 reference_schema: str = None,  # v0.8.0: cross-schema FKs
+                 reference_table: str = None,
+                 reference_column: str = None,
+                 value: str = None,
+                 columns: list = None):         # v0.8.0: for composite constraints
         self.type = type
+        self.reference_schema = reference_schema
         self.reference_table = reference_table
         self.reference_column = reference_column
         self.value = value
+        self.columns = columns or []
 ```
 
 ## Notes
@@ -750,6 +891,32 @@ This is pseudocode for reference. Real implementations should:
 4. Optimize for performance
 5. Follow language-specific best practices
 6. Include proper documentation
+
+### v0.8.0 Implementation Notes
+
+This pseudocode has been updated for TSSN v0.8.0 with support for:
+
+- **Type Aliases**: Reusable literal unions and sized types declared at the
+  top of the schema
+  - Parser: `parse_type_alias()` captures `type Name = ...;` declarations
+  - Resolution: `resolve_aliases()` runs post-parse to expand alias references
+    into concrete type expressions while preserving the alias name on the Column
+  - Schema class: New `type_aliases` collection alongside `tables` and `views`
+- **Views**: First-class `view` declarations distinct from `interface`
+  - Parser: `parse_interface(kind='view')` handles the `view` keyword
+  - Table class: New `kind` field (`'table'` or `'view'`) and
+    `materialized`/`readonly` flags driven by `@materialized`/`@readonly`
+    annotations
+- **Composite Primary Keys**: Interface-level `PK(col1, col2, ...)` comments
+  - Parser: `parse_interface_level_constraint()` recognises
+    `PK(...)` / `UNIQUE(...)` / `INDEX(...)` uniformly
+  - Table class: New `composite_pk` field (list of column names or `None`)
+- **`@computed` Annotation**: Marks derived columns in `parse_constraints()`
+  - Produces a `Constraint(type='COMPUTED', value=expression_or_None)`
+  - Column exposes `is_computed` property for consumers
+- **Cross-Schema FK Triples**: Foreign-key regex now captures an optional
+  schema prefix, producing `(schema, table, column)` triples on the
+  `FOREIGN_KEY` constraint
 
 ### v0.7.0 Implementation Notes
 

@@ -1,8 +1,8 @@
 # TypeScript-Style Schema Notation (TSSN)
 
-**Version:** 0.7.0
+**Version:** 0.8.0
 **Status:** Draft Specification
-**Date:** 2025-11-26
+**Date:** 2026-04-14
 **Authors:** Benjamin Zimmer
 **License:** MIT
 
@@ -213,6 +213,99 @@ Literal unions map to the underlying base type with a CHECK constraint:
 
 **Note**: The primary purpose of literal unions is semantic precision for LLMs, not DDL generation. Implementations may choose how to represent these in generated SQL.
 
+#### 2.2.7 Type Aliases
+
+Literal unions that repeat across multiple tables waste tokens — precisely
+the cost TSSN exists to eliminate. Type aliases allow a literal union (or any
+other type expression) to be named once and reused:
+
+```typescript
+type OrderStatus = 'pending' | 'shipped' | 'delivered' | 'cancelled';
+type Priority = 1 | 2 | 3;
+
+interface Orders {
+  id: int;                    // PRIMARY KEY
+  status: OrderStatus;
+  priority: Priority;
+}
+
+interface Shipments {
+  id: int;                    // PRIMARY KEY
+  order_id: int;              // FK -> Orders(id)
+  status: OrderStatus;        // Reuses the same allowed values
+}
+```
+
+**Token Efficiency Impact:**
+
+Without aliases, a 10-table schema repeating a 4-value status union pays the
+token cost 10 times. With aliases, it is paid once. For LLM context windows
+this is the highest-leverage feature in v0.8 — pure information reuse.
+
+**Syntax:**
+
+```
+type Identifier = type_expression;
+```
+
+| Rule | Detail |
+|------|--------|
+| Placement | At the top of the schema, before any `interface` or `view` |
+| Identifier | PascalCase recommended (`OrderStatus`, not `order_status`) |
+| Allowed RHS | Literal unions, base types with length, arrays of either |
+| Forward references | Not allowed — aliases MUST be declared before first use |
+| Nesting | Aliases MAY NOT reference other aliases (no transitive resolution) |
+| Scope | File-level; aliases are not exported across files |
+
+**Allowed Right-Hand Sides:**
+
+```typescript
+type OrderStatus = 'pending' | 'shipped' | 'delivered';  // Literal union
+type Rating      = 1 | 2 | 3 | 4 | 5;                    // Numeric union
+type ShortCode   = string(10);                           // Sized string
+type Tags        = string[];                             // Array type
+type Scores      = int[];                                // Array of numbers
+```
+
+**Not Allowed:**
+
+```typescript
+type Alias1 = OrderStatus;         // INVALID: references another alias
+type Alias2 = interface Users;     // INVALID: references a table
+type Alias3 = string | int;        // INVALID: mixed base type union
+```
+
+**Nullability:**
+
+Aliases themselves do not declare nullability. A column using an alias
+applies `?` at the column site as usual:
+
+```typescript
+type OrderStatus = 'pending' | 'shipped' | 'delivered';
+
+interface Orders {
+  status: OrderStatus;          // NOT NULL
+  prev_status?: OrderStatus;    // NULL allowed, reuses the same alias
+}
+```
+
+**Database Mapping:**
+
+Type aliases do not map to SQL `CREATE DOMAIN` or `CREATE TYPE` — they are
+strictly a TSSN-level compression mechanism. Generators MUST inline the
+alias definition when producing DDL:
+
+| TSSN | Generated DDL (PostgreSQL) |
+|------|---------------------------|
+| `type OrderStatus = 'pending' \| 'shipped';` + `status: OrderStatus;` | `status VARCHAR CHECK (status IN ('pending','shipped'))` |
+
+**Parser Requirements:**
+
+1. Collect all `type` declarations in a first pass
+2. Resolve aliases to their concrete type when emitting the parsed AST
+3. Preserve the alias name in the AST for round-trip fidelity
+4. Reject forward references and alias-to-alias references with a clear error
+
 ### 2.3 Nullability
 
 The `?` suffix indicates nullable columns:
@@ -261,6 +354,35 @@ interface Memberships {
   status: string(20);
 }
 ```
+
+#### 2.5.1 Composite Primary Keys
+
+Tables without a single surrogate key use a `PK(...)` comment at the interface
+level to declare a composite primary key. No column carries an inline
+`PRIMARY KEY` marker in this case:
+
+```typescript
+// PK(post_id, tag_id)
+interface PostTags {
+  post_id: int;               // FK -> Posts(id)
+  tag_id: int;                // FK -> Tags(id)
+  tagged_at: datetime;        // DEFAULT CURRENT_TIMESTAMP
+}
+```
+
+Column order inside `PK(...)` reflects the intended key order and MAY be used
+by LLMs to infer index-friendly query predicates.
+
+Mixing an inline `PRIMARY KEY` marker with an interface-level `PK(...)` comment
+is invalid — use exactly one form per table.
+
+#### 2.5.2 Supported Multi-Column Constraint Patterns
+
+| Pattern | Example | Meaning |
+|---------|---------|---------|
+| `PK(a, b, ...)` | `// PK(post_id, tag_id)` | Composite primary key |
+| `UNIQUE(a, b, ...)` | `// UNIQUE(user_id, org_id)` | Composite unique constraint |
+| `INDEX(a, b, ...)` | `// INDEX(created_at, status)` | Composite (multi-column) index |
 
 ### 2.6 Vendor-Specific Type Handling
 
@@ -402,6 +524,72 @@ SELECT "Order ID", "Product Name" FROM "Order Details"
 
 **Note**: Quoted identifiers indicate a schema design that predates modern naming conventions. While TSSN supports them for compatibility, new schemas should prefer snake_case or PascalCase identifiers.
 
+### 2.9 Views
+
+Views are first-class in TSSN and use the `view` keyword in place of
+`interface`. The body syntax is identical — the difference is semantic:
+
+```typescript
+view ActiveUsers {
+  id: int;                    // PRIMARY KEY
+  email: string(255);
+  organization_id: int;       // FK -> Organizations(id)
+  last_login: datetime;
+}
+```
+
+**Why Views Need a Dedicated Keyword:**
+
+For an LLM generating read queries, the view/table distinction matters:
+
+1. **Write safety** — views MAY be read-only; the LLM should not propose
+   `INSERT`/`UPDATE`/`DELETE` against them without context
+2. **Pre-joined data** — views often already flatten relationships, so the
+   LLM should not re-JOIN tables the view has already assembled
+3. **Performance profile** — regular views re-execute on every query;
+   materialized views are cached
+
+Without a first-class marker, an LLM sees only an `interface` and cannot
+distinguish a base table from a view.
+
+#### 2.9.1 Materialized Views
+
+Materialized views are marked with the `@materialized` annotation:
+
+```typescript
+// @materialized
+view UserStats {
+  user_id: int;               // PRIMARY KEY
+  total_orders: int;
+  lifetime_value: decimal;
+  last_order_at?: datetime;
+}
+```
+
+The LLM can then reason about staleness — for example, preferring a base
+table JOIN over a materialized view when freshness is critical.
+
+#### 2.9.2 View-Specific Annotations
+
+| Annotation | Meaning |
+|------------|---------|
+| `@materialized` | Cached/precomputed view (PostgreSQL `MATERIALIZED VIEW`, Oracle `MATERIALIZED VIEW`) |
+| `@readonly` | View is explicitly non-updatable (default assumption for most views) |
+| `@updatable` | View supports `INSERT`/`UPDATE`/`DELETE` (rare; requires DB-specific rules) |
+
+#### 2.9.3 Foreign Keys and Views
+
+Views MAY appear as targets in foreign-key-style comments for documentation
+purposes, but parsers MUST NOT treat them as enforced foreign keys — the
+underlying database has no view-level FK concept:
+
+```typescript
+interface Orders {
+  id: int;                    // PRIMARY KEY
+  user_id: int;               // FK -> ActiveUsers(id)  (view reference, informational)
+}
+```
+
 ## 3. Extended Annotations
 
 ### 3.1 Domain-Specific Metadata
@@ -429,6 +617,53 @@ interface LegacyOrders {
   customer_id?: int;            // FK -> Customers(id), @since: v2.0
 }
 ```
+
+### 3.3 Computed Columns
+
+The `@computed` annotation marks a column as derived (generated, computed, or
+virtual) rather than directly stored. An optional expression follows a colon:
+
+```typescript
+interface Users {
+  id: int;                      // PRIMARY KEY
+  first_name: string(50);
+  last_name: string(50);
+  full_name: string(101);       // @computed: first_name || ' ' || last_name
+  email_domain: string(255);    // @computed
+}
+```
+
+**Why This Matters for LLM Query Generation:**
+
+Computed columns have different query characteristics than stored columns:
+
+- They MAY not be indexed in some database systems
+- They cannot appear in `INSERT` / `UPDATE` statements
+- Referencing them in `WHERE` clauses MAY force expression re-evaluation
+
+By marking such columns explicitly, LLMs can prefer stored columns in hot
+predicates and avoid writing ineffective queries:
+
+```sql
+-- LLM sees @computed on email_domain, prefers indexed email column
+SELECT * FROM users WHERE email LIKE '%@example.com';
+```
+
+**Expression Field:**
+
+The expression after `@computed:` is informational — parsers MUST NOT attempt
+to evaluate it as SQL. It exists solely to communicate intent to the LLM.
+When the expression is omitted, the column is still flagged as computed but
+its derivation is unspecified.
+
+**Database Mapping:**
+
+| Database | Feature |
+|----------|---------|
+| PostgreSQL | `GENERATED ALWAYS AS (...) STORED` |
+| SQL Server | `AS (expression)` (persisted or virtual) |
+| MySQL | `GENERATED ALWAYS AS (expression) [VIRTUAL\|STORED]` |
+| Oracle | `GENERATED ALWAYS AS (expression) VIRTUAL` |
 
 ## 4. Complete Examples
 
@@ -487,27 +722,136 @@ interface ProjectMemberships {
 
 ## 5. Implementation Guidelines
 
-### 5.1 Parser Requirements
+### 5.1 Conformance Levels
 
-A compliant TSSN parser MUST:
+TSSN defines three conformance levels so that implementations can declare
+which subset of the specification they support. Every implementation MUST
+document its target level in its README or equivalent documentation.
+
+Levels are strictly cumulative: Level 2 implementations MUST support
+everything in Level 1, and Level 3 implementations MUST support everything
+in Level 2.
+
+#### 5.1.1 Level 1 — Core
+
+The minimum required to claim TSSN support. A Level 1 parser is sufficient
+for consuming hand-written schemas in simple environments.
+
+**Required features:**
+
+- `interface` declarations with simple identifiers
+- Base types: `int`, `string`, `decimal`, `float`, `number`, `boolean`,
+  `datetime`, `date`, `time`, `text`, `char`, `blob`, `uuid`, `json`
+- Type length parameters: `string(n)`, `char(n)`
+- Nullable columns via `?` suffix
+- Inline comments (everything after `//` on a column line, captured as an
+  opaque string)
+- Standalone comment lines (captured as opaque strings, not parsed)
+
+**Not required:**
+
+- Any structured interpretation of comments (constraints remain raw strings)
+- Multi-column constraints
+- Any Section 2.5+ feature
+
+#### 5.1.2 Level 2 — Standard
+
+The recommended level for most implementations. A Level 2 parser can drive
+LLM query generation for real-world schemas.
+
+**Required features (in addition to Level 1):**
+
+- Structured constraint parsing from inline comments:
+  `PRIMARY KEY` / `PK`, `FOREIGN KEY` / `FK -> Table(column)`, `UNIQUE`,
+  `INDEX`, `AUTO_INCREMENT` / `IDENTITY`, `DEFAULT value`
+- Interface-level multi-column constraints: `PK(...)`, `UNIQUE(...)`,
+  `INDEX(...)` (Sections 2.5, 2.5.1, 2.5.2)
+- Array type suffix `[]` (Section 2.2.5)
+- Literal union types (Section 2.2.6)
+- Quoted identifiers using backticks (Section 2.8)
+- Cross-schema FK references in the form `schema.Table(column)`
+  (Section 2.7.2), parsed as a `(schema, table, column)` triple
+
+#### 5.1.3 Level 3 — Extended
+
+The full specification. Level 3 parsers support the complete v0.8 feature
+set and may serve as reference implementations.
+
+**Required features (in addition to Level 2):**
+
+- Type aliases via `type Name = ...` (Section 2.2.7), with alias resolution
+  and round-trip preservation of the alias name
+- First-class `view` keyword (Section 2.9), distinguished from `interface`
+  in the parsed AST
+- `@materialized`, `@readonly`, `@updatable` annotations on views
+  (Section 2.9.2)
+- Domain annotations from Section 3: `@schema`, `@format`, `@enum`,
+  `@deprecated`, `@since`, `@description`, `@computed`, `@generated`,
+  `@validation`, `@table`, `@engine`
+
+Implementations at Level 3 SHOULD also pass the official conformance test
+suite in `tests/conformance/` (see Section 5.4).
+
+#### 5.1.4 Conformance Matrix
+
+| Feature | L1 | L2 | L3 |
+|---------|----|----|----|
+| `interface` declarations | MUST | MUST | MUST |
+| Base types + length | MUST | MUST | MUST |
+| Nullable `?` | MUST | MUST | MUST |
+| Opaque comment capture | MUST | MUST | MUST |
+| Structured constraint parsing (PK/FK/UNIQUE/…) | — | MUST | MUST |
+| Multi-column `PK(...)` / `UNIQUE(...)` / `INDEX(...)` | — | MUST | MUST |
+| Array types `[]` | — | MUST | MUST |
+| Literal union types | — | MUST | MUST |
+| Quoted identifiers (backticks) | — | MUST | MUST |
+| Cross-schema FK triples | — | MUST | MUST |
+| Type aliases (`type ... = ...`) | — | — | MUST |
+| `view` keyword | — | — | MUST |
+| View annotations (`@materialized` etc.) | — | — | MUST |
+| Domain annotations (`@schema`, `@computed`, …) | — | — | MUST |
+
+### 5.2 Parser Requirements
+
+A compliant TSSN parser at any level MUST:
 
 1. Parse interface declarations with valid TypeScript-style identifiers
-2. Recognize `?` suffix for nullable columns
+2. Recognize the `?` suffix for nullable columns
 3. Parse type annotations with optional length parameters
-4. Extract inline comments as metadata
-5. Handle multi-line comments for interface-level constraints
+4. Extract inline comments as metadata (opaque at Level 1, structured at
+   Level 2+)
+5. Handle standalone comment lines inside interfaces as interface-level
+   constraints
+6. Report errors with line numbers for malformed input
+7. Declare its supported conformance level in documentation
 
-### 5.2 Generator Requirements
+### 5.3 Generator Requirements
 
 A compliant TSSN generator SHOULD:
 
-1. Map database-specific types to abstract type categories according to Section 2.2
+1. Map database-specific types to abstract type categories according to
+   Section 2.2
 2. Preserve constraint information in comments
-3. Order columns by role: primary keys first, followed by data columns, then timestamp columns (created_at, updated_at)
+3. Order columns by role: primary keys first, followed by data columns,
+   then timestamp columns (`created_at`, `updated_at`, `deleted_at`)
 4. Include foreign key relationships
 5. Omit internal/system columns unless explicitly requested
+6. Factor out repeated literal unions as type aliases when targeting
+   Level 3 output
 
-### 5.3 Formatting Conventions
+### 5.4 Conformance Test Suite
+
+A reference conformance test suite lives in `tests/conformance/` in the
+TSSN repository. Each test case consists of:
+
+- A `.tssn` input file
+- A `.ast.json` expected output file representing the parsed AST
+
+Tests are grouped by level (`level1/`, `level2/`, `level3/`). An
+implementation claims a conformance level by passing every test in that
+level's directory and every level below it.
+
+### 5.5 Formatting Conventions
 
 - **Indentation**: 2 spaces
 - **Column Alignment**: Align types at column 25 (recommended, not required)
@@ -673,10 +1017,14 @@ When mapping from TSSN back to SQL:
 
 ### 10.1 Proposed Features
 
-- **Multi-schema Support**: Explicit schema prefixes
-- **View Definitions**: Represent views alongside tables
 - **Temporal Tables**: Native syntax for history/versioning
 - **Graph Relationships**: First-class support for graph database concepts
+- **Soft-delete Semantics**: Standardized `@softdelete` annotation so LLMs
+  automatically filter `WHERE deleted_at IS NULL`
+- **Row-level Security Hints**: Tenant-scoping and RLS annotations
+
+*Delivered in earlier versions:* multi-schema support (v0.6),
+literal unions (v0.7), type aliases and views (v0.8).
 
 ### 10.2 Community Contributions
 
@@ -694,16 +1042,20 @@ TSSN is designed to be extended by the community. Proposed extensions should mai
 ## Appendix A: Grammar (EBNF-style)
 
 ```ebnf
-schema          = interface+
-interface       = ws comment* "interface" ws identifier ws "{" ws column* ws "}"
+schema          = ws ( type_alias | interface_decl | view_decl | comment )*
+type_alias      = ws "type" ws simple_id ws "=" ws type_expr ws ";" ws
+interface_decl  = ws comment* "interface" ws identifier ws "{" ws body "}"
+view_decl       = ws comment* "view" ws identifier ws "{" ws body "}"
+body            = ( column | comment | ws )*
 column          = ws identifier nullable? ws ":" ws type_expr ws ";" comment? newline
 nullable        = "?"
-type_expr       = union_type | simple_type
+type_expr       = union_type | simple_type | alias_ref
 union_type      = literal ( ws "|" ws literal )+
 literal         = string_lit | number_lit
 string_lit      = "'" ( char_no_sq )* "'"
 number_lit      = "-"? digits
 simple_type     = base_type ( "(" digits ")" )? array?
+alias_ref       = simple_id                     (* PascalCase identifier previously declared *)
 array           = "[]"
 base_type       = identifier
 comment         = "//" char* newline
@@ -719,6 +1071,23 @@ char            = (* any character except newline *)
 ws              = ( " " | "\t" | newline )*
 newline         = "\n" | "\r\n" | "\r"
 ```
+
+**Resolution rules for `alias_ref`:**
+- An `alias_ref` matches a `simple_id` only if a `type_alias` with the same
+  name was declared earlier in the schema. Otherwise the identifier is
+  interpreted as a `base_type` in `simple_type`.
+- `type_alias` declarations MUST appear before any `interface_decl` or
+  `view_decl` that references them.
+- A `type_alias` RHS MUST NOT itself contain an `alias_ref` (no transitive
+  aliasing).
+
+**Key additions in v0.8.0:**
+- `type_alias` production: Reusable literal unions and sized types
+- `view_decl` production: First-class view declarations (distinct AST node
+  from `interface_decl`)
+- `alias_ref` production in `type_expr`: References to previously declared
+  type aliases
+- `schema` now admits top-level aliases, views, and comments in any order
 
 **Key additions in v0.7.0:**
 - `union_type` production: Literal unions like `'a' | 'b' | 'c'` or `1 | 2 | 3`
