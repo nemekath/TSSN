@@ -71,11 +71,18 @@ TSSN uses TypeScript interface-like syntax:
 
 ```typescript
 interface TableName {
-  column_name: DataType;
-  nullable_column?: DataType;
+  column_name: int;
+  nullable_column?: string(255);
   // Comments for metadata
 }
 ```
+
+In the example above, `int` and `string(255)` are drawn from the
+base type set defined in Section 2.2.1–2.2.4. The placeholder
+pseudo-name `DataType` used in earlier drafts of this section is
+not a real TSSN type — every column declaration MUST use a concrete
+base type, a literal union, an array of either, or a previously
+declared type alias.
 
 ### 2.2 Data Type Mapping
 
@@ -1120,7 +1127,8 @@ interface User {
 
 ### 7.2 SQL DDL Generation
 
-TSSN representations can generate SQL DDL with database-specific adapters:
+TSSN representations can generate SQL DDL with database-specific
+adapters. The following TSSN input:
 
 ```typescript
 // Target: PostgreSQL
@@ -1128,13 +1136,20 @@ interface Users {
   id: int;              // PRIMARY KEY, AUTO_INCREMENT
   email: string(255);   // UNIQUE
 }
+```
 
-// Generated DDL:
+…can be mapped by a PostgreSQL adapter to:
+
+```sql
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL
 );
 ```
+
+The spec does not define the mapping rules — those are an
+implementation concern of each adapter — but every valid TSSN
+schema has enough information to drive one.
 
 ## 8. Use Cases
 

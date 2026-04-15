@@ -29,8 +29,8 @@ Basic interface structure (Section 2.1):
 
 ```typescript
 interface TableName {
-  column_name: type;
-  another_column: type;
+  column_name: int;
+  another_column: string(255);
 }
 ```
 
