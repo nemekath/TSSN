@@ -206,16 +206,21 @@ describe('EXAMPLES.md Section 16 — Complete Example', () => {
     expect(orgFk.tail).toBe('ON DELETE CASCADE');
   });
 
-  it('does not propagate @schema: app past intervening type aliases', () => {
-    // The leading `@schema: app` comment in the source sits above three
-    // type-alias declarations, which intercept it. Per Spec Section 2.7,
-    // @schema attaches to the immediately following declaration only;
-    // file-level @schema propagation is open question #13 in the
-    // Charter and is NOT implemented. This test pins the current
-    // behavior so a future change to add propagation is a conscious
-    // decision, not an accident.
+  it('propagates @schema: app from the top of the file across type aliases', () => {
+    // Per Spec 2.7.2 (added as Charter Q13 resolution), a top-of-file
+    // @schema annotation that is separated from the first interface by
+    // intervening type aliases becomes the parse-unit default and
+    // applies to every subsequent declaration that does not carry its
+    // own @schema. In the canonical schema, every table and every view
+    // inherits @schema: app.
     const orgs = tables(schema).find((t) => t.name === 'Organizations')!;
-    expect(orgs.schema).toBeUndefined();
+    const users = tables(schema).find((t) => t.name === 'Users')!;
+    const projects = tables(schema).find((t) => t.name === 'Projects')!;
+    const ap = views(schema).find((v) => v.name === 'ActiveProjects')!;
+    expect(orgs.schema).toBe('app');
+    expect(users.schema).toBe('app');
+    expect(projects.schema).toBe('app');
+    expect(ap.schema).toBe('app');
   });
 
   it('preserves declaration order in schema.declarations', () => {

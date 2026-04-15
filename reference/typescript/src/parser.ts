@@ -109,6 +109,10 @@ class Parser {
   /** True once the parser has consumed its first interface or view,
    *  after which further `type` declarations are invalid per Spec 2.2.7. */
   private seenDeclarationKeyword = false;
+  /** Parse-unit default schema, set by a non-adjacent top-level
+   *  `@schema: X` comment per Spec Section 2.7.2. Applies to every
+   *  subsequent declaration that does not carry its own `@schema`. */
+  private fileSchema: string | undefined;
 
   constructor(
     private readonly source: string,
@@ -137,6 +141,11 @@ class Parser {
             pendingComments = [];
             continue;
           }
+          // Pending @schema annotations are NOT adjacent to a table or
+          // view, so they promote to the parse-unit default per
+          // Spec 2.7.2. Non-schema comments are discarded because type
+          // aliases do not carry leading comments in the AST.
+          this.absorbPendingSchemaToFile(pendingComments);
           try {
             const alias = this.parseTypeAliasDecl();
             if (this.aliases.has(alias.name)) {
@@ -215,6 +224,10 @@ class Parser {
       schemaName,
     } = this.classifyLeading(leading);
 
+    // A local @schema on the leading comment wins; otherwise the
+    // parse-unit default from a non-adjacent top-level @schema applies.
+    const effectiveSchema = schemaName ?? this.fileSchema;
+
     const decl: TableDecl = {
       kind: 'table',
       name: nameInfo.name,
@@ -225,7 +238,7 @@ class Parser {
       leadingComments: plainComments,
       span: { start: startTok.span.start, end: endTok.span.end },
     };
-    if (schemaName !== undefined) decl.schema = schemaName;
+    if (effectiveSchema !== undefined) decl.schema = effectiveSchema;
     return decl;
   }
 
@@ -249,6 +262,8 @@ class Parser {
     // Default view semantics are read-only. Explicit @updatable flips it.
     const readonly = readonlyAnnotated || !updatable;
 
+    const effectiveSchema = schemaName ?? this.fileSchema;
+
     const decl: ViewDecl = {
       kind: 'view',
       name: nameInfo.name,
@@ -263,7 +278,7 @@ class Parser {
       leadingComments: plainComments,
       span: { start: startTok.span.start, end: endTok.span.end },
     };
-    if (schemaName !== undefined) decl.schema = schemaName;
+    if (effectiveSchema !== undefined) decl.schema = effectiveSchema;
     return decl;
   }
 
@@ -306,6 +321,20 @@ class Parser {
       rhs,
       span: { start: startTok.span.start, end: semi.span.end },
     };
+  }
+
+  /** Scans a set of pending leading comments for `@schema: X`
+   *  annotations and promotes the most recent one to the parse-unit
+   *  default. Used when the comments are about to be dropped
+   *  (e.g., because a type-alias declaration follows instead of a
+   *  table or view). See Spec 2.7.2. */
+  private absorbPendingSchemaToFile(tokens: Token[]): void {
+    for (const tok of tokens) {
+      const ann = parseLeadingAnnotation(tok.value, tok.span);
+      if (ann !== null && ann.key === 'schema' && ann.value !== undefined) {
+        this.fileSchema = ann.value;
+      }
+    }
   }
 
   private classifyLeading(tokens: Token[]): {

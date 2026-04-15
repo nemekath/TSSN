@@ -165,3 +165,86 @@ describe('parser / @schema on views', () => {
     expect(v.schema).toBe('reporting');
   });
 });
+
+describe('parser / file-level @schema propagation (Q13)', () => {
+  it('promotes top-of-file @schema to parse-unit default when a type alias intervenes', () => {
+    const schema = parse(`
+      // @schema: app
+      type Status = 'a' | 'b';
+      interface Users { id: int; status: Status; }
+    `);
+    expect(tables(schema)[0]!.schema).toBe('app');
+  });
+
+  it('propagates across multiple interfaces without re-declaration', () => {
+    const schema = parse(`
+      // @schema: app
+      type Status = 'a' | 'b';
+      interface A { id: int; }
+      interface B { id: int; }
+      interface C { id: int; }
+    `);
+    for (const t of tables(schema)) {
+      expect(t.schema).toBe('app');
+    }
+  });
+
+  it('propagates to views too', () => {
+    const schema = parse(`
+      // @schema: reporting
+      type Metric = 'clicks' | 'views';
+      view Daily { id: int; metric: Metric; }
+    `);
+    expect(views(schema)[0]!.schema).toBe('reporting');
+  });
+
+  it('does NOT become the default when @schema is directly adjacent to an interface', () => {
+    // No type alias intervenes — schema attaches locally only.
+    const schema = parse(`
+      // @schema: app
+      interface A { id: int; }
+      interface B { id: int; }
+    `);
+    expect(tables(schema)[0]!.schema).toBe('app');
+    expect(tables(schema)[1]!.schema).toBeUndefined();
+  });
+
+  it('allows a local @schema on one interface to override the default', () => {
+    const schema = parse(`
+      // @schema: app
+      type Status = 'a' | 'b';
+      interface A { id: int; }
+      // @schema: audit
+      interface B { id: int; }
+      interface C { id: int; }
+    `);
+    expect(tables(schema)[0]!.schema).toBe('app');
+    expect(tables(schema)[1]!.schema).toBe('audit');
+    expect(tables(schema)[2]!.schema).toBe('app');
+  });
+
+  it('allows a later non-adjacent @schema to replace the default', () => {
+    // Both @schema comments sit above type aliases, so both are
+    // non-adjacent and promote to the parse-unit default. The LAST
+    // one written wins for subsequent declarations. Type aliases
+    // must precede all interfaces per Spec 2.2.7.
+    const schema = parse(`
+      // @schema: app
+      type A = 'a' | 'b';
+      // @schema: audit
+      type B = 'c' | 'd';
+      interface First { id: int; }
+      interface Second { id: int; }
+    `);
+    expect(tables(schema)[0]!.schema).toBe('audit');
+    expect(tables(schema)[1]!.schema).toBe('audit');
+  });
+
+  it('leaves decls without any @schema at all as undefined', () => {
+    const schema = parse(`
+      type Status = 'a' | 'b';
+      interface X { id: int; status: Status; }
+    `);
+    expect(tables(schema)[0]!.schema).toBeUndefined();
+  });
+});
