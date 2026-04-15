@@ -13,7 +13,10 @@ class TSSNParser:
     def __init__(self):
         self.current_line = 0
         self.lines = []
-    
+        # v0.8.0: Parse-unit default schema set by a non-adjacent
+        # top-level @schema comment per Spec Section 2.7.2.
+        self.file_schema = None
+
     def parse(self, tssn_text: str) -> Schema:
         """
         Parse TSSN text and return Schema object (Updated for v0.8.0)
@@ -40,20 +43,33 @@ class TSSNParser:
             # --- NEW in v0.8.0: Parse type alias declaration ---
             # type OrderStatus = 'pending' | 'shipped' | 'delivered';
             if line.startswith('type '):
+                # Pending @schema comments are NOT adjacent to a table
+                # or view — they promote to the parse-unit default per
+                # Spec 2.7.2.
+                self.absorb_pending_schema_to_file(pending_comments)
                 alias = self.parse_type_alias(line)
                 schema.add_type_alias(alias)
+                pending_comments = []
                 self.current_line += 1
                 continue
 
             # --- NEW in v0.8.0: Parse view declaration ---
             if line.startswith('view '):
-                view = self.parse_interface(kind='view')
+                view = self.parse_interface(kind='view', leading=pending_comments)
+                # Fall back to the parse-unit default schema if the
+                # view didn't set one locally (Spec 2.7.2).
+                if view.schema is None and self.file_schema is not None:
+                    view.schema = self.file_schema
                 schema.add_view(view)
+                pending_comments = []
 
             # Parse interface (table) declaration
             elif line.startswith('interface'):
-                table = self.parse_interface(kind='table')
+                table = self.parse_interface(kind='table', leading=pending_comments)
+                if table.schema is None and self.file_schema is not None:
+                    table.schema = self.file_schema
                 schema.add_table(table)
+                pending_comments = []
 
             # Store standalone comments (schema-level metadata)
             elif line.startswith('//'):
@@ -91,6 +107,23 @@ class TSSNParser:
         # Reject forward references to other aliases - aliases MUST be concrete
         # The resolver will verify this post-parse.
         return TypeAlias(name=name, raw_rhs=rhs)
+
+    def absorb_pending_schema_to_file(self, pending_comments: list) -> None:
+        """
+        Promote a non-adjacent top-level @schema annotation to the
+        parse-unit default (New in v0.8.0, Spec Section 2.7.2).
+
+        Called when the parser is about to consume a 'type' declaration
+        with buffered comments that will otherwise be discarded —
+        aliases don't carry leading comments in the AST. If any of
+        those comments is `@schema: X`, X becomes the file-level default
+        that applies to every subsequent declaration without its own
+        @schema. A later non-adjacent @schema replaces it.
+        """
+        for raw in pending_comments:
+            match = re.match(r'^\s*@schema\s*:\s*(\S+)\s*$', raw)
+            if match:
+                self.file_schema = match.group(1)
 
     def resolve_aliases(self, schema: Schema) -> None:
         """
@@ -781,11 +814,91 @@ class DatabaseIntrospector:
                 ))
 
 
+## Semantic Validation (New in v0.8.0)
+
+The parser handles syntactic rules. Semantic rules that the grammar
+permits but the spec prose forbids are the validator's job. Validators
+run after parse() and return a list of ValidationError objects rather
+than throwing, so callers can render every problem at once.
+
+```python
+class TSSNValidator:
+    """Semantic checks (v0.8.0)"""
+
+    # The 14 normative base types from Spec 2.2.1–2.2.4.
+    BASE_TYPES = {
+        'int', 'decimal', 'float', 'number',
+        'string', 'char', 'text',
+        'datetime', 'date', 'time',
+        'boolean', 'blob', 'uuid', 'json',
+    }
+
+    def validate(self, schema: Schema) -> list:
+        errors = []
+        self.check_duplicate_aliases(schema, errors)
+        self.check_alias_shadows_base_type(schema, errors)
+        self.check_duplicate_declarations(schema, errors)
+        for table in schema.tables:
+            self.check_mixed_pk_forms(table, errors)
+            self.check_materialized_on_table(table, errors)
+        for view in schema.views:
+            self.check_view_annotation_combinations(view, errors)
+        return errors
+
+    def check_view_annotation_combinations(self, view: Table, errors: list):
+        """
+        Spec 2.9.3: Reject invalid view annotation combinations.
+
+        - @readonly + @updatable is a direct contradiction
+        - @materialized + @updatable is not portable across databases
+        """
+        if view.readonly_annotated and view.updatable:
+            errors.append(ValidationError(
+                code='contradictory_view_annotations',
+                message=f"View '{view.name}' carries both @readonly and @updatable",
+                span=view.span,
+            ))
+        if view.materialized and view.updatable:
+            errors.append(ValidationError(
+                code='contradictory_view_annotations',
+                message=f"View '{view.name}' is @materialized and @updatable — "
+                        f"materialized views cannot be portably updated",
+                span=view.span,
+            ))
+
+    def check_alias_shadows_base_type(self, schema: Schema, errors: list):
+        """Spec 2.2.7: Alias name MUST NOT match a base type."""
+        for alias in schema.type_aliases:
+            if alias.name in self.BASE_TYPES:
+                errors.append(ValidationError(
+                    code='alias_shadows_base_type',
+                    message=f"Type alias '{alias.name}' collides with a base type",
+                    span=alias.span,
+                ))
+
+    def check_materialized_on_table(self, table: Table, errors: list):
+        """Spec 2.9: @materialized applies only to views."""
+        if table.kind == 'table' and table.materialized:
+            errors.append(ValidationError(
+                code='materialized_on_table',
+                message=f"@materialized applies only to views, not '{table.name}'",
+                span=table.span,
+            ))
+
+    # Additional checks (check_mixed_pk_forms, check_duplicate_*,
+    # check_type_expr_base_types, check_union_homogeneity, etc.) follow
+    # the same pattern. See reference/typescript/src/validate.ts for
+    # the complete reference implementation.
+```
+
 ## Usage Example
 
 # Parse TSSN
 parser = TSSNParser()
 schema = parser.parse(tssn_text)
+errors = TSSNValidator().validate(schema)
+if errors:
+    raise ValidationFailed(errors)
 
 # Generate TSSN from database
 introspector = DatabaseIntrospector(db_connection)
@@ -836,8 +949,13 @@ class Table:
         self.metadata = []
         self.constraint_comments = []
         self.composite_pk = None   # v0.8.0: list of column names or None
-        self.materialized = False  # v0.8.0: set by @materialized annotation
-        self.readonly = None       # v0.8.0: True/False/None (views only)
+        self.schema = None         # v0.8.0: set by @schema or file-level default (Spec 2.7.2)
+        # --- View-specific flags (Spec 2.9.2, 2.9.3) ---
+        # Only meaningful when kind == 'view'. Spec default is read-only.
+        self.materialized = False  # set by @materialized annotation
+        self.readonly = True       # unmarked views are read-only per Spec 2.9.2
+        self.readonly_annotated = False  # True only when @readonly was written explicitly (for round-trip)
+        self.updatable = False     # set by @updatable; overrides default read-only
 
 class TypeAlias:
     """v0.8.0: Reusable type definition (literal union, sized type, array)"""
@@ -917,6 +1035,32 @@ This pseudocode has been updated for TSSN v0.8.0 with support for:
 - **Cross-Schema FK Triples**: Foreign-key regex now captures an optional
   schema prefix, producing `(schema, table, column)` triples on the
   `FOREIGN_KEY` constraint
+- **File-Level `@schema` Propagation** (Spec 2.7.2): Non-adjacent top-
+  level `@schema` annotations promote to a parse-unit default that
+  applies to every subsequent declaration lacking its own `@schema`
+  - Parser: `absorb_pending_schema_to_file()` is invoked before every
+    `type` declaration and scans buffered leading comments for a
+    `@schema: X` pattern, storing X in `self.file_schema`
+  - `parse_interface()` for both tables and views falls back to
+    `self.file_schema` when no local `@schema` attaches
+  - A later non-adjacent `@schema` replaces the default; adjacent
+    annotations do not
+- **View Annotation Interaction** (Spec 2.9.3): The default writability
+  of a `view` declaration is read-only. Invalid combinations are
+  rejected by the validator, not the parser
+  - `Table.readonly` defaults to `True` (previously `None`, tri-state)
+  - `Table.readonly_annotated` records whether `@readonly` was written
+    explicitly, for round-trip regeneration
+  - `Table.updatable` flips read-only when `@updatable` is present
+  - `TSSNValidator.check_view_annotation_combinations()` rejects
+    `@readonly + @updatable` and `@materialized + @updatable` with
+    the `contradictory_view_annotations` error code
+- **Validator**: New `TSSNValidator` class with `BASE_TYPES` constant
+  (the 14 normative base types) and checks for alias name collisions,
+  unknown base types, mixed-literal unions, mixed PK forms, duplicate
+  columns/aliases/declarations, and composite constraint column
+  references. See the Semantic Validation section earlier in this
+  document.
 
 ### v0.7.0 Implementation Notes
 
