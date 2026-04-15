@@ -215,6 +215,11 @@ Literal unions map to the underlying base type with a CHECK constraint:
 
 #### 2.2.7 Type Aliases
 
+A *type expression* is any RHS that may appear in a column declaration:
+a base type with optional length, an array suffix applied to a base
+type, or a literal union. The formal grammar is given in Appendix A as
+the `type_expr` production.
+
 Literal unions that repeat across multiple tables waste tokens — precisely
 the cost TSSN exists to eliminate. Type aliases allow a literal union (or any
 other type expression) to be named once and reused:
@@ -306,6 +311,15 @@ alias definition when producing DDL:
 3. Preserve the alias name in the AST for round-trip fidelity
 4. Reject forward references and alias-to-alias references with a clear error
 
+**Backward Compatibility:**
+
+Type aliases are purely additive. Any schema valid under v0.7 or earlier
+remains valid under v0.8 because pre-v0.8 schemas contain no `type`
+declarations. The new `type` identifier becomes a reserved top-level
+keyword in v0.8; implementations MUST NOT reject v0.7 schemas that use
+`type` as a **column** name, since column-name position is unaffected by
+the top-level keyword rule.
+
 ### 2.3 Nullability
 
 The `?` suffix indicates nullable columns:
@@ -375,6 +389,12 @@ by LLMs to infer index-friendly query predicates.
 
 Mixing an inline `PRIMARY KEY` marker with an interface-level `PK(...)` comment
 is invalid — use exactly one form per table.
+
+**Backward Compatibility:**
+
+The inline `// PRIMARY KEY` form for single-column primary keys is
+unchanged from v0.7. Only the new multi-column case uses interface-level
+`PK(...)`. Schemas written against earlier versions remain valid.
 
 #### 2.5.2 Supported Multi-Column Constraint Patterns
 
@@ -538,19 +558,28 @@ view ActiveUsers {
 }
 ```
 
-**Why Views Need a Dedicated Keyword:**
+**Why Views Need a Dedicated Keyword (informative):**
 
 For an LLM generating read queries, the view/table distinction matters:
 
-1. **Write safety** — views MAY be read-only; the LLM should not propose
-   `INSERT`/`UPDATE`/`DELETE` against them without context
-2. **Pre-joined data** — views often already flatten relationships, so the
-   LLM should not re-JOIN tables the view has already assembled
+1. **Write safety** — views are read-only by default (see 2.9.2); LLMs
+   consuming TSSN should not propose `INSERT`/`UPDATE`/`DELETE` against
+   them unless the view is explicitly marked `@updatable`
+2. **Pre-joined data** — views often already flatten relationships, so
+   LLMs should avoid re-JOINing tables the view has already assembled
 3. **Performance profile** — regular views re-execute on every query;
-   materialized views are cached
+   materialized views are cached and may be stale
 
 Without a first-class marker, an LLM sees only an `interface` and cannot
 distinguish a base table from a view.
+
+**Backward Compatibility:**
+
+`view` becomes a reserved top-level keyword in v0.8. Schemas written
+against earlier versions that used `interface` for what are semantically
+views continue to parse without error — the distinction is additive.
+Implementations MUST NOT reject v0.7 schemas where `view` appears as a
+**column** name (column-name position is unaffected).
 
 #### 2.9.1 Materialized Views
 
@@ -574,10 +603,46 @@ table JOIN over a materialized view when freshness is critical.
 | Annotation | Meaning |
 |------------|---------|
 | `@materialized` | Cached/precomputed view (PostgreSQL `MATERIALIZED VIEW`, Oracle `MATERIALIZED VIEW`) |
-| `@readonly` | View is explicitly non-updatable (default assumption for most views) |
-| `@updatable` | View supports `INSERT`/`UPDATE`/`DELETE` (rare; requires DB-specific rules) |
+| `@readonly` | Explicit restatement of the default read-only semantic; useful for visual clarity |
+| `@updatable` | View supports `INSERT`/`UPDATE`/`DELETE`; overrides the default read-only semantic |
 
-#### 2.9.3 Foreign Keys and Views
+**Default writability:** A `view` declaration without any of
+`@readonly` / `@updatable` is read-only by default. Implementations
+that generate SQL from TSSN MUST NOT emit `INSERT`, `UPDATE`, or
+`DELETE` statements against an unmarked view, and SHOULD reject any
+request to do so at the type-checking layer. A view only becomes
+updatable when the source schema explicitly carries `@updatable`.
+
+#### 2.9.3 Annotation Interaction
+
+The three view annotations are not fully orthogonal. The matrix below
+defines which combinations are legal and how parsers MUST classify
+each outcome:
+
+| Combination | Materialized | Read-only | Updatable | Status |
+|-------------|:-:|:-:|:-:|--------|
+| (no annotations)       | ✗ | ✓ | ✗ | Default — legal |
+| `@readonly`            | ✗ | ✓ | ✗ | Legal; explicit restatement of default |
+| `@updatable`           | ✗ | ✗ | ✓ | Legal; overrides default |
+| `@materialized`        | ✓ | ✓ | ✗ | Legal; materialized views are read-only by default |
+| `@materialized @readonly` | ✓ | ✓ | ✗ | Legal; redundant but not contradictory |
+| `@readonly @updatable` | — | — | — | **Invalid** — direct contradiction |
+| `@materialized @updatable` | — | — | — | **Invalid** — materialized views cannot be written to in the general case; the spec rejects this portably even if a specific database permits it |
+
+Implementations MUST reject invalid combinations with a clear error.
+The rejection is a semantic check (validator-level), not a grammar
+error — each annotation alone is well-formed.
+
+**Example (invalid):**
+
+```typescript
+// @materialized
+// @updatable
+view Cached { id: int; }
+// Error: @materialized and @updatable cannot appear on the same view.
+```
+
+#### 2.9.4 Foreign Keys and Views
 
 Views MAY appear as targets in foreign-key-style comments for documentation
 purposes, but parsers MUST NOT treat them as enforced foreign keys — the
@@ -637,9 +702,11 @@ interface Users {
 
 Computed columns have different query characteristics than stored columns:
 
-- They MAY not be indexed in some database systems
+- They are not guaranteed to be indexed, and many databases leave
+  computed columns unindexed by default
 - They cannot appear in `INSERT` / `UPDATE` statements
-- Referencing them in `WHERE` clauses MAY force expression re-evaluation
+- Referencing them in `WHERE` clauses can force expression
+  re-evaluation, bypassing the query planner's index choices
 
 By marking such columns explicitly, LLMs can prefer stored columns in hot
 predicates and avoid writing ineffective queries:
@@ -794,22 +861,25 @@ suite in `tests/conformance/` (see Section 5.4).
 
 #### 5.1.4 Conformance Matrix
 
-| Feature | L1 | L2 | L3 |
-|---------|----|----|----|
-| `interface` declarations | MUST | MUST | MUST |
-| Base types + length | MUST | MUST | MUST |
-| Nullable `?` | MUST | MUST | MUST |
-| Opaque comment capture | MUST | MUST | MUST |
-| Structured constraint parsing (PK/FK/UNIQUE/…) | — | MUST | MUST |
-| Multi-column `PK(...)` / `UNIQUE(...)` / `INDEX(...)` | — | MUST | MUST |
-| Array types `[]` | — | MUST | MUST |
-| Literal union types | — | MUST | MUST |
-| Quoted identifiers (backticks) | — | MUST | MUST |
-| Cross-schema FK triples | — | MUST | MUST |
-| Type aliases (`type ... = ...`) | — | — | MUST |
-| `view` keyword | — | — | MUST |
-| View annotations (`@materialized` etc.) | — | — | MUST |
-| Domain annotations (`@schema`, `@computed`, …) | — | — | MUST |
+| Feature | Section | L1 | L2 | L3 |
+|---------|---------|----|----|----|
+| `interface` declarations | 2.1 | MUST | MUST | MUST |
+| Base types + length | 2.2.1–2.2.4 | MUST | MUST | MUST |
+| Nullable `?` | 2.3 | MUST | MUST | MUST |
+| Opaque comment capture | 2.4 | MUST | MUST | MUST |
+| Structured constraint parsing (PK, FK, UNIQUE, INDEX, AUTO_INCREMENT, DEFAULT) | 2.4.1 | — | MUST | MUST |
+| Composite primary keys via `PK(a, b, ...)` | 2.5.1 | — | MUST | MUST |
+| Interface-level `UNIQUE(...)` / `INDEX(...)` | 2.5, 2.5.2 | — | MUST | MUST |
+| Array types `[]` | 2.2.5 | — | MUST | MUST |
+| Literal union types | 2.2.6 | — | MUST | MUST |
+| Quoted identifiers (backticks, `` `` `` escape) | 2.8 | — | MUST | MUST |
+| Cross-schema FK triples (`schema.Table(col)`) | 2.7.2 | — | MUST | MUST |
+| Type aliases (`type X = ...;`) | 2.2.7 | — | — | MUST |
+| `view` keyword (distinct from `interface`) | 2.9 | — | — | MUST |
+| View annotations (`@materialized`, `@readonly`, `@updatable`) | 2.9.2–2.9.3 | — | — | MUST |
+| `@computed` annotation with optional expression | 3.3 | — | — | MUST |
+| `@schema` namespace annotation | 2.7, 3.1 | — | — | MUST |
+| Other domain annotations (`@format`, `@since`, `@deprecated`, `@description`, `@enum`) | 3.1, 3.2 | — | — | MUST |
 
 ### 5.2 Parser Requirements
 

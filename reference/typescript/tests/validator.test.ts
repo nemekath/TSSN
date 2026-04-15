@@ -135,6 +135,49 @@ describe('validator / @materialized placement', () => {
   });
 });
 
+describe('validator / view annotation combinations', () => {
+  it('accepts a plain view (default read-only)', () => {
+    expect(errorsFor('view X { id: int; }')).toEqual([]);
+  });
+
+  it('accepts @materialized alone', () => {
+    expect(
+      errorsFor(`
+        // @materialized
+        view X { id: int; }
+      `)
+    ).toEqual([]);
+  });
+
+  it('accepts @materialized + @readonly (redundant but legal)', () => {
+    expect(
+      errorsFor(`
+        // @materialized
+        // @readonly
+        view X { id: int; }
+      `)
+    ).toEqual([]);
+  });
+
+  it('rejects @readonly + @updatable as contradictory', () => {
+    const errs = errorsFor(`
+      // @readonly
+      // @updatable
+      view X { id: int; }
+    `);
+    expect(errs.some((m) => /contradictory_view_annotations/.test(m))).toBe(true);
+  });
+
+  it('rejects @materialized + @updatable', () => {
+    const errs = errorsFor(`
+      // @materialized
+      // @updatable
+      view X { id: int; }
+    `);
+    expect(errs.some((m) => /contradictory_view_annotations/.test(m))).toBe(true);
+  });
+});
+
 describe('parse() integration', () => {
   it('surfaces validation errors via AggregateError', () => {
     expect(() => parse('interface X { id: int; id: int; }')).toThrow(AggregateError);

@@ -61,9 +61,36 @@ export function validate(schema: Schema): ValidationError[] {
   for (const view of views) {
     checkDuplicateColumns(view.columns, errors);
     checkCompositeColumnRefs(view, errors);
+    checkViewAnnotationCombinations(view, errors);
   }
 
   return errors;
+}
+
+function checkViewAnnotationCombinations(
+  view: ViewDecl,
+  errors: ValidationError[]
+): void {
+  const hasMaterialized = view.annotations.some((a) => a.key === 'materialized');
+  const hasReadonly = view.annotations.some((a) => a.key === 'readonly');
+  const hasUpdatable = view.annotations.some((a) => a.key === 'updatable');
+
+  if (hasReadonly && hasUpdatable) {
+    const ann = view.annotations.find((a) => a.key === 'updatable')!;
+    errors.push({
+      code: 'contradictory_view_annotations',
+      message: `View '${view.name}' carries both @readonly and @updatable — these contradict`,
+      span: ann.span,
+    });
+  }
+  if (hasMaterialized && hasUpdatable) {
+    const ann = view.annotations.find((a) => a.key === 'updatable')!;
+    errors.push({
+      code: 'contradictory_view_annotations',
+      message: `View '${view.name}' is @materialized and @updatable — materialized views cannot be portably updated`,
+      span: ann.span,
+    });
+  }
 }
 
 // ---------- individual checks ----------
