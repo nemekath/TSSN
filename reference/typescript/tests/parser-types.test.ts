@@ -99,7 +99,7 @@ describe('parser / trailing comments', () => {
     const schema = parse(
       `interface X {
         id: int;
-        // UNIQUE(a, b)
+        // UNIQUE(id, email)
         email: string;
       }`
     );

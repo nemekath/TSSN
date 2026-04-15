@@ -36,6 +36,7 @@ import {
 import { parseInlineConstraints, parseInterfaceConstraint } from './constraints.js';
 import { ParseError } from './errors.js';
 import { LexError, tokenize, type Span, type Token, type TokenKind } from './lexer.js';
+import { validate, type ValidationError } from './validate.js';
 
 export interface ParseOptions {
   filename?: string;
@@ -68,10 +69,16 @@ export function parseRaw(source: string, opts: ParseOptions = {}): ParseResult {
 
 export function parse(source: string, opts: ParseOptions = {}): Schema {
   const { schema, errors } = parseRaw(source, opts);
-  if (errors.length > 0) {
+  const validationErrors: ValidationError[] =
+    errors.length === 0 ? validate(schema) : [];
+  const all: Array<ParseError | ValidationError> = [
+    ...errors,
+    ...validationErrors,
+  ];
+  if (all.length > 0) {
     throw new AggregateError(
-      errors,
-      `TSSN parse failed with ${errors.length} error(s)`
+      all,
+      `TSSN parse failed with ${all.length} error(s)`
     );
   }
   return schema;
