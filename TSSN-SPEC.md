@@ -213,6 +213,36 @@ Literal unions map to the underlying base type with a CHECK constraint:
 
 **Note**: The primary purpose of literal unions is semantic precision for LLMs, not DDL generation. Implementations may choose how to represent these in generated SQL.
 
+**Constraints on Literal Unions:**
+
+The following rules are normative:
+
+1. **Integer-only numbers.** Numeric literals in unions MUST be integers.
+   Floating-point literals such as `1.5 | 2.5` are not permitted. The
+   EBNF's `number_lit = "-"? digits` is deliberately integer-only;
+   implementations MUST reject floats with a clear parse error.
+2. **Homogeneous literals.** A single union MUST contain either
+   exclusively string literals or exclusively numeric literals. Mixed
+   unions such as `'yes' | 1` are not permitted. Validators MUST reject
+   such unions at semantic-check time even though the grammar permits
+   the token sequence.
+3. **Minimum cardinality.** A union MUST contain at least two distinct
+   literals. A "union" of one literal is not a meaningful type and
+   implementations MUST reject it.
+
+**Negative examples (invalid):**
+
+```typescript
+// Float literal in a union — not permitted
+priority: 1.0 | 2.0 | 3.0;     // INVALID: floats
+
+// Mixed-literal union — not permitted
+answer: 'yes' | 1;              // INVALID: mixed
+
+// Single-literal "union" — not permitted
+flag: 'on';                     // INVALID: not a union; use 'on' | 'off' or a base type
+```
+
 #### 2.2.7 Type Aliases
 
 A *type expression* is any RHS that may appear in a column declaration:
@@ -260,7 +290,8 @@ type Identifier = type_expression;
 | Allowed RHS | Literal unions, base types with length, arrays of either |
 | Forward references | Not allowed — aliases MUST be declared before first use |
 | Nesting | Aliases MAY NOT reference other aliases (no transitive resolution) |
-| Scope | File-level; aliases are not exported across files |
+| Name collisions | An alias identifier MUST NOT match the name of a base type from Sections 2.2.1–2.2.4 (e.g., `type int = ...;` is invalid). Validators MUST reject such declarations. |
+| Scope | Parse-unit-level — aliases declared in a single `parse()` invocation are visible to declarations in that same invocation and nowhere else. TSSN has no module or file system, so there is no cross-unit export or import. |
 
 **Allowed Right-Hand Sides:**
 
@@ -384,8 +415,14 @@ interface PostTags {
 }
 ```
 
-Column order inside `PK(...)` reflects the intended key order and MAY be used
-by LLMs to infer index-friendly query predicates.
+Column order inside `PK(...)` is **significant**. Databases use the
+declared order to build the index that enforces the primary key, and
+that order determines which query predicates can use the index
+efficiently. `PK(a, b)` and `PK(b, a)` are therefore **not
+equivalent** — they describe different physical shapes even when the
+logical uniqueness constraint is the same. Generators MUST preserve
+the declared order when emitting DDL, and consumers MUST treat the
+order as informative about index-friendly predicates.
 
 Mixing an inline `PRIMARY KEY` marker with an interface-level `PK(...)` comment
 is invalid — use exactly one form per table.
@@ -476,7 +513,58 @@ Tables without an `@schema` annotation are assumed to be in the database's defau
 - PostgreSQL: `public`
 - MySQL: database name (no separate schema concept)
 
-#### 2.7.2 Cross-Schema References
+#### 2.7.2 File-Level Schema Propagation
+
+When `@schema` appears at the top of the input (before any
+`interface`, `view`, or `type` declaration) and is not immediately
+followed by one of those declarations — for example, when it sits
+above intervening type aliases — the annotation becomes the **parse-
+unit default schema** and applies to every declaration in the same
+parse invocation that does not carry its own `@schema`.
+
+```typescript
+// @schema: app
+
+type UserRole = 'admin' | 'member' | 'guest';
+
+interface Users {          // inherits @schema: app
+  id: int;
+  role: UserRole;
+}
+
+// @schema: audit
+interface Changes {        // overrides to @schema: audit
+  id: int;
+  user_id: int;            // FK -> app.Users(id)
+}
+
+interface Sessions {       // inherits @schema: app again
+  id: int;
+  user_id: int;            // FK -> app.Users(id)
+}
+```
+
+**Rules:**
+
+1. A `@schema` annotation that is NOT immediately adjacent to a
+   declaration (i.e., a type alias, interface, or view intervenes)
+   becomes the parse-unit default.
+2. A `@schema` annotation immediately adjacent to a declaration
+   attaches only to that declaration, overriding the parse-unit
+   default for that one case.
+3. There is exactly one parse-unit default at a time. A later
+   top-level `@schema` that is also non-adjacent replaces the
+   default; adjacent annotations do not.
+4. Schemas without any `@schema` at all fall through to the database's
+   default schema per Section 2.7.1.
+
+**Rationale:** Schemas frequently belong to a single namespace and
+repeating `// @schema: X` on every interface is wasteful and
+error-prone. File-level propagation preserves the token-efficiency
+goal of TSSN while keeping the override semantic available when a
+declaration genuinely needs a different namespace.
+
+#### 2.7.3 Cross-Schema References
 
 Foreign key references to tables in other schemas use the full path `schema.Table(column)`:
 
@@ -655,6 +743,41 @@ interface Orders {
 }
 ```
 
+### 2.10 Reserved Keywords
+
+TSSN has three **contextual keywords**. They are reserved only at the
+top level of a schema, where they introduce a declaration:
+
+| Keyword | Introduces | Section |
+|---------|-----------|---------|
+| `interface` | A table declaration | 2.1 |
+| `view` | A view declaration | 2.9 |
+| `type` | A type alias declaration | 2.2.7 |
+
+Because these are **contextual**, they remain valid inside a column
+position. The following is a legal v0.8 schema:
+
+```typescript
+interface Document {
+  id: int;              // PRIMARY KEY
+  type: string(50);     // column named "type"
+  view: int;            // column named "view"
+  interface: boolean;   // column named "interface"
+}
+```
+
+Parsers MUST classify `interface` / `view` / `type` as a top-level
+keyword only when they appear as the first token of a declaration at
+file scope, and as a simple identifier in all other positions. Column
+names that coincide with contextual keywords require no quoting.
+
+Identifiers that collide with SQL reserved words from a specific
+database (`SELECT`, `FROM`, `ORDER`, etc.) are NOT TSSN-reserved.
+TSSN parsers accept them as unquoted simple identifiers wherever the
+grammar allows. Schema authors who need to generate SQL from TSSN
+SHOULD quote such identifiers via the backtick form from Section 2.8
+to avoid downstream escaping errors.
+
 ## 3. Extended Annotations
 
 ### 3.1 Domain-Specific Metadata
@@ -695,8 +818,15 @@ interface Users {
   last_name: string(50);
   full_name: string(101);       // @computed: first_name || ' ' || last_name
   email_domain: string(255);    // @computed
+  middle_initial?: char(1);
+  display_name?: string(101);   // @computed: full name if middle_initial is null
 }
 ```
+
+Nullable computed columns are permitted — the `?` marker applies to
+the computed result, typically because the expression can evaluate to
+`NULL` when one of its inputs is null. Implementations MUST accept
+the combination of `?` and `@computed` on the same column.
 
 **Why This Matters for LLM Query Generation:**
 
@@ -837,7 +967,7 @@ LLM query generation for real-world schemas.
 - Literal union types (Section 2.2.6)
 - Quoted identifiers using backticks (Section 2.8)
 - Cross-schema FK references in the form `schema.Table(column)`
-  (Section 2.7.2), parsed as a `(schema, table, column)` triple
+  (Section 2.7.3), parsed as a `(schema, table, column)` triple
 
 #### 5.1.3 Level 3 — Extended
 
@@ -873,7 +1003,7 @@ suite in `tests/conformance/` (see Section 5.4).
 | Array types `[]` | 2.2.5 | — | MUST | MUST |
 | Literal union types | 2.2.6 | — | MUST | MUST |
 | Quoted identifiers (backticks, `` `` `` escape) | 2.8 | — | MUST | MUST |
-| Cross-schema FK triples (`schema.Table(col)`) | 2.7.2 | — | MUST | MUST |
+| Cross-schema FK triples (`schema.Table(col)`) | 2.7.3 | — | MUST | MUST |
 | Type aliases (`type X = ...;`) | 2.2.7 | — | — | MUST |
 | `view` keyword (distinct from `interface`) | 2.9 | — | — | MUST |
 | View annotations (`@materialized`, `@readonly`, `@updatable`) | 2.9.2–2.9.3 | — | — | MUST |
