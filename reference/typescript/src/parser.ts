@@ -382,7 +382,15 @@ class Parser {
       this.consume();
       nullable = true;
     }
-    this.expect('colon');
+    // Report a missing colon at the column's own start so the caret
+    // points at the broken column rather than the following token.
+    if (this.peek().kind !== 'colon') {
+      throw new ParseError({
+        message: `Expected ':' after column name '${nameInfo.name}'`,
+        span: startTok.span,
+      });
+    }
+    this.consume();
     const type = this.parseTypeExpr();
     const semi = this.expect('semi');
 
