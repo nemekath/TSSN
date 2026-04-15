@@ -86,6 +86,22 @@ describe('parser / inline constraints', () => {
     expect(fk.tail).toBe('ON DELETE CASCADE');
   });
 
+  it('parses ON UPDATE CASCADE into the FK tail', () => {
+    const cs = constraintsOf(
+      'interface X { user_id: int; // FK -> Users(id), ON UPDATE CASCADE\n}'
+    );
+    const fk = cs.find((c) => c.kind === 'foreign_key') as ForeignKeyConstraint;
+    expect(fk.tail).toBe('ON UPDATE CASCADE');
+  });
+
+  it('parses ON DELETE SET NULL', () => {
+    const cs = constraintsOf(
+      'interface X { user_id: int; // FK -> Users(id), ON DELETE SET NULL\n}'
+    );
+    const fk = cs.find((c) => c.kind === 'foreign_key') as ForeignKeyConstraint;
+    expect(fk.tail).toBe('ON DELETE SET NULL');
+  });
+
   it('preserves the raw comment text alongside parsed constraints', () => {
     const col = tables(
       parse('interface X { id: int; // PRIMARY KEY, AUTO_INCREMENT\n}')

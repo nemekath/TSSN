@@ -195,6 +195,35 @@ visible during editorial review.
    detach?
 5. **Trailing `;` after `}`**: currently rejected; keep strict or
    accept leniently?
+6. **`@materialized` + `@updatable`** interaction: rejected as of
+   v0.8 Section 2.9.3. Is that the final portable rule, or should the
+   spec defer to database-specific semantics?
+7. **Composite PK ordering semantics**: is `PK(a, b)` equivalent to
+   `PK(b, a)` for equality, or does order define a normative index
+   shape that generators must preserve?
+8. **Type alias scope**: Spec Section 2.2.7 says aliases are
+   "file-level" but TSSN has no formal file/module concept. Rephrase
+   in terms of a single parse() invocation.
+9. **Reserved-keyword list**: v0.8 introduces `type` and `view` as
+   top-level keywords. A consolidated reserved-word section is
+   missing; without it, future additions (`enum`? `domain`?) will be
+   harder to plan.
+10. **`@computed` on nullable columns**: legal? The spec shows no
+    example. Assume yes; document explicitly.
+11. **Mixed-literal unions (`'a' | 1`)**: currently accepted at parse
+    time with no validator warning. Was this intentional or should
+    the validator flag it?
+12. **Unknown base-type identifiers**: currently accepted with no
+    diagnostic (e.g., `id: Foobar;` parses as a BaseType). Should
+    the validator reject types not in the spec's 14-entry base type
+    list?
+13. **File-level `@schema` propagation**: the canonical EXAMPLES.md
+    Section 16 example writes `@schema: app` at the top of the file
+    and expects every subsequent declaration to inherit it. But per
+    Section 2.7, `@schema` attaches to the immediately following
+    declaration only, and intervening `type` aliases break the chain.
+    Either extend the spec to make file-top `@schema` sticky across a
+    parse unit, or update EXAMPLES.md so the propagation is explicit.
 
 ## 11. References
 

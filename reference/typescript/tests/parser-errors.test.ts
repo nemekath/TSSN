@@ -147,6 +147,23 @@ describe('parser / cross-platform input', () => {
   });
 });
 
+describe('parser / lex-error propagation', () => {
+  it('converts a LexError for a float literal into a collected parse error', () => {
+    const { errors } = parseRaw("interface X { v: 1.5 | 2.5; }");
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]!.message).toMatch(/floating-point|Expected|digit/i);
+  });
+
+  it('converts an unterminated string into a collected error', () => {
+    const { errors } = parseRaw("interface X { v: 'oops; }");
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('parseRaw never throws on lex errors', () => {
+    expect(() => parseRaw("interface X { v: 1.5; }")).not.toThrow();
+  });
+});
+
 describe('parser / filename propagation', () => {
   it('echoes the filename into the Schema object', () => {
     const { schema } = parseRaw('interface X { id: int; }', {

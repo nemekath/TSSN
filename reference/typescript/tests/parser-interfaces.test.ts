@@ -86,4 +86,45 @@ describe('parser / interface declarations', () => {
   it('parse() throws AggregateError on parse failure', () => {
     expect(() => parse('interface X')).toThrow(AggregateError);
   });
+
+  it('ignores a trailing comment on the closing brace line', () => {
+    const schema = parse('interface X { id: int; } // end of X');
+    expect(tables(schema)).toHaveLength(1);
+    expect(tables(schema)[0]!.columns).toHaveLength(1);
+  });
+
+  it('parses an interface whose body contains only comments', () => {
+    const schema = parse(`
+      interface Empty {
+        // This interface has no columns yet.
+      }
+    `);
+    expect(tables(schema)[0]!.columns).toEqual([]);
+  });
+});
+
+describe('parser / contextual keywords as column names', () => {
+  it('accepts "type" as a column name', () => {
+    const schema = parse('interface X { type: string; }');
+    expect(tables(schema)[0]!.columns[0]!.name).toBe('type');
+  });
+
+  it('accepts "view" as a column name', () => {
+    const schema = parse('interface X { view: string; }');
+    expect(tables(schema)[0]!.columns[0]!.name).toBe('view');
+  });
+
+  it('accepts "interface" as a column name', () => {
+    const schema = parse('interface X { interface: string; }');
+    expect(tables(schema)[0]!.columns[0]!.name).toBe('interface');
+  });
+
+  it('accepts multiple contextual-keyword columns in one interface', () => {
+    const schema = parse('interface X { type: string; view: int; interface: boolean; }');
+    expect(tables(schema)[0]!.columns.map((c) => c.name)).toEqual([
+      'type',
+      'view',
+      'interface',
+    ]);
+  });
 });

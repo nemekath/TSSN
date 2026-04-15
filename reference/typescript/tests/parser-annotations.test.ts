@@ -123,6 +123,37 @@ describe('parser / @computed constraint', () => {
   });
 });
 
+describe('parser / L3 domain annotations by name', () => {
+  it('captures @enum with value', () => {
+    const col = tables(
+      parse('interface X { status: string(20); // @enum: [admin, user, guest]\n}')
+    )[0]!.columns[0]!;
+    const enumAnn = col.annotations.find((a) => a.key === 'enum');
+    expect(enumAnn).toBeDefined();
+    expect(enumAnn!.value).toContain('admin');
+  });
+
+  it('captures @table as a leading declaration annotation', () => {
+    const t = tables(
+      parse(`
+        // @table: user_accounts
+        interface Users { id: int; }
+      `)
+    )[0]!;
+    expect(t.annotations.find((a) => a.key === 'table')?.value).toBe('user_accounts');
+  });
+
+  it('captures @engine as a leading declaration annotation', () => {
+    const t = tables(
+      parse(`
+        // @engine: InnoDB
+        interface Users { id: int; }
+      `)
+    )[0]!;
+    expect(t.annotations.find((a) => a.key === 'engine')?.value).toBe('InnoDB');
+  });
+});
+
 describe('parser / @schema on views', () => {
   it('picks up the schema field on a view decl', () => {
     const v = views(
