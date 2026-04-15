@@ -70,6 +70,24 @@ describe('parser / nullability', () => {
   });
 });
 
+describe('parser / underscore-leading identifiers', () => {
+  it('accepts a column name starting with an underscore', () => {
+    const col = firstColumn('interface X { _internal: int; }');
+    expect(col.name).toBe('_internal');
+    expect(col.quoted).toBe(false);
+  });
+
+  it('accepts a bare underscore as a column name', () => {
+    const col = firstColumn('interface X { _: int; }');
+    expect(col.name).toBe('_');
+  });
+
+  it('accepts underscore-leading table names', () => {
+    const schema = parse('interface _Internal { id: int; }');
+    expect(tables(schema)[0]!.name).toBe('_Internal');
+  });
+});
+
 describe('parser / quoted column identifiers', () => {
   it('parses a quoted column name', () => {
     const col = firstColumn('interface X { `Order ID`: int; }');

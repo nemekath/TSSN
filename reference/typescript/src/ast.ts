@@ -193,9 +193,15 @@ export interface ViewDecl {
   tableConstraints: Constraint[];
   /** True if `@materialized` was present. */
   materialized: boolean;
-  /** True if `@readonly` was present (or if no explicit updatability
-   *  marker was given — the default view semantic is read-only). */
+  /** Effective read-only semantic of the view. True when `@updatable` is
+   *  absent OR when `@readonly` is explicitly present. A plain view with
+   *  no annotations is read-only by default, per Spec Section 2.9.2. */
   readonly: boolean;
+  /** True only when `@readonly` was written explicitly in the source.
+   *  Distinguishes `view X {}` (readonlyAnnotated=false, readonly=true)
+   *  from `// @readonly\nview X {}` (both true) for round-trip
+   *  regeneration. */
+  readonlyAnnotated: boolean;
   /** True if `@updatable` was present (overrides the default). */
   updatable: boolean;
   annotations: Annotation[];

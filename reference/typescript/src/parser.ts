@@ -257,6 +257,7 @@ class Parser {
       tableConstraints: [...leadingConstraints, ...bodyConstraints],
       materialized,
       readonly,
+      readonlyAnnotated,
       updatable,
       annotations,
       leadingComments: plainComments,

@@ -128,4 +128,16 @@ describe('parser / type aliases', () => {
     expect(col.type.kind).toBe('base');
     expect((col.type as BaseType).base).toBe('MyCustomType');
   });
+
+  it('rejects an alias applied with an array suffix in a type-alias RHS', () => {
+    // type X = A[];  — the array suffix only attaches to simple_type, not
+    // alias_ref. If A is a known alias, parseSimpleTypeWithArray returns
+    // the alias immediately and the RHS check rejects alias-to-alias.
+    const result = parseRaw(`
+      type A = 'x' | 'y';
+      type X = A[];
+    `);
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]!.message).toMatch(/cannot reference another alias/i);
+  });
 });

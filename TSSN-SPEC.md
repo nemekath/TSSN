@@ -1130,7 +1130,7 @@ array           = "[]"
 base_type       = identifier
 comment         = "//" char* newline
 identifier      = simple_id | quoted_id
-simple_id       = letter ( letter | digit | "_" )*
+simple_id       = ( letter | "_" ) ( letter | digit | "_" )*
 quoted_id       = "`" ( char_no_bt | "``" )* "`"
 char_no_bt      = (* any character except backtick *)
 char_no_sq      = (* any character except single quote *)
@@ -1158,6 +1158,9 @@ newline         = "\n" | "\r\n" | "\r"
 - `alias_ref` production in `type_expr`: References to previously declared
   type aliases
 - `schema` now admits top-level aliases, views, and comments in any order
+- `simple_id` now permits leading underscore so that identifiers such as
+  `_internal` or `_created_at` — common in real database schemas — are
+  accepted without requiring backtick quoting
 
 **Key additions in v0.7.0:**
 - `union_type` production: Literal unions like `'a' | 'b' | 'c'` or `1 | 2 | 3`

@@ -96,4 +96,43 @@ describe('parser / views', () => {
     )[0]!;
     expect(v.schema).toBe('reporting');
   });
+
+  it('distinguishes implicit default readonly from explicit @readonly', () => {
+    const plain = views(parse('view X { id: int; }'))[0]!;
+    const explicit = views(
+      parse(`
+        // @readonly
+        view Y { id: int; }
+      `)
+    )[0]!;
+    // Both are effectively read-only
+    expect(plain.readonly).toBe(true);
+    expect(explicit.readonly).toBe(true);
+    // But only one has the annotation in source
+    expect(plain.readonlyAnnotated).toBe(false);
+    expect(explicit.readonlyAnnotated).toBe(true);
+  });
+
+  it('flags readonlyAnnotated for @materialized + @readonly', () => {
+    const v = views(
+      parse(`
+        // @materialized
+        // @readonly
+        view X { id: int; }
+      `)
+    )[0]!;
+    expect(v.materialized).toBe(true);
+    expect(v.readonlyAnnotated).toBe(true);
+  });
+
+  it('does not set readonlyAnnotated on @materialized alone', () => {
+    const v = views(
+      parse(`
+        // @materialized
+        view X { id: int; }
+      `)
+    )[0]!;
+    expect(v.readonlyAnnotated).toBe(false);
+    expect(v.readonly).toBe(true);
+  });
 });
