@@ -180,50 +180,85 @@ or conformance suite are recognized in release notes.
 
 ## 10. Open Questions for the Editor
 
-Items that affect the shape of 1.0 and need explicit resolution before
-stable release. Captured here rather than in issues so they remain
-visible during editorial review.
+Items that still need resolution before the 1.0 stable release.
+Resolved questions are tracked in Section 10.2 for traceability.
 
-1. **Unicode in `simple_id`**: EBNF restricts to ASCII, but the
-   informative note at the end of Appendix A mentions Unicode support.
-   Resolve by either broadening the EBNF or making the note normative.
-2. **`type X = int;`** shadowing a base type: currently accepted; should
-   the validator warn?
-3. **Float literals in unions**: currently rejected; is that final?
-4. **Blank-line detachment** for annotations: currently attaches
-   comments with zero blank lines; is one blank line enough to
-   detach?
-5. **Trailing `;` after `}`**: currently rejected; keep strict or
-   accept leniently?
-6. **`@materialized` + `@updatable`** interaction: rejected as of
-   v0.8 Section 2.9.3. Is that the final portable rule, or should the
-   spec defer to database-specific semantics?
-7. **Composite PK ordering semantics**: is `PK(a, b)` equivalent to
-   `PK(b, a)` for equality, or does order define a normative index
-   shape that generators must preserve?
-8. **Type alias scope**: Spec Section 2.2.7 says aliases are
-   "file-level" but TSSN has no formal file/module concept. Rephrase
-   in terms of a single parse() invocation.
-9. **Reserved-keyword list**: v0.8 introduces `type` and `view` as
-   top-level keywords. A consolidated reserved-word section is
-   missing; without it, future additions (`enum`? `domain`?) will be
-   harder to plan.
-10. **`@computed` on nullable columns**: legal? The spec shows no
-    example. Assume yes; document explicitly.
-11. **Mixed-literal unions (`'a' | 1`)**: currently accepted at parse
-    time with no validator warning. Was this intentional or should
-    the validator flag it?
-12. **Unknown base-type identifiers**: currently accepted with no
-    diagnostic (e.g., `id: Foobar;` parses as a BaseType). Should
-    the validator reject types not in the spec's 14-entry base type
-    list?
-13. **File-level `@schema` propagation**: the canonical EXAMPLES.md
-    Section 16 example writes `@schema: app` at the top of the file
-    and expects every subsequent declaration to inherit it. But per
-    Section 2.7, `@schema` attaches to the immediately following
-    declaration only, and intervening `type` aliases break the chain.
-    Either extend the spec to make file-top `@schema` sticky across a
-    parse unit, or update EXAMPLES.md so the propagation is explicit.
+### 10.1 Still open
+
+1. **Unicode in `simple_id`**: EBNF currently restricts simple_id to
+   ASCII letters plus digits and underscore. The informative note at
+   the end of Appendix A mentions Unicode support for quoted
+   identifiers only. Decide before 1.0 whether to:
+   - Broaden the EBNF to admit Unicode letter categories
+   - Keep ASCII-only and formalize the note as "Unicode is supported
+     only via quoted identifiers"
+   The current reference implementation accepts ASCII only, matching
+   the EBNF as written.
+
+2. **DEFAULT values containing quoted commas**: The current constraint
+   parser stops `DEFAULT` at the first comma, which breaks on
+   `DEFAULT 'foo, bar'`. A proper tokenizer that respects single-quote
+   quoting is needed. Conformance-reviewer flagged this; deferred to
+   a follow-up with a broader constraint-comment tokenizer.
+
+3. **Composite primary key columns and nullability**: Spec 2.5.1 does
+   not explicitly say that columns referenced by a composite `PK(...)`
+   must be non-nullable. Most SQL engines require non-null PK
+   columns; should the validator enforce this?
+
+4. **Security considerations section**: The spec has no Security
+   Considerations section yet. Before 1.0 the spec MUST add one
+   covering parser resource limits, handling of hostile comments,
+   and guidance for consuming TSSN from untrusted sources. Charter
+   Section 8 tracks the scope.
+
+5. **Single-quote handling inside string literals**: The grammar
+   defines `char_no_sq` as "any character except single quote" with
+   no escape sequence. Strings containing `'` currently cannot be
+   represented at all, which limits literal unions. Decide whether
+   to introduce an escape convention (e.g., SQL-style doubled `''`)
+   or keep the restriction.
+
+6. **Cross-implementation ordering of AST fields**: For the
+   conformance suite to be language-agnostic, `.ast.json` fixtures
+   need a canonical field order and canonical numeric formatting
+   (integer vs float). The current TypeScript impl emits objects in
+   insertion order; once a second implementation exists, drift is
+   possible. Specify a JSON schema for `.ast.json` files before
+   publishing the conformance suite as normative.
+
+### 10.2 Resolved questions (v0.8 cycle)
+
+For traceability, the following questions were resolved during the
+v0.8 editorial pass and no longer need further decision:
+
+- ~~`type X = int;` shadowing a base type~~ — Resolved: validator
+  error (`alias_shadows_base_type`). Spec 2.2.7.
+- ~~Float literals in unions~~ — Resolved: rejected. Spec 2.2.6
+  "Constraints on Literal Unions" rule 1.
+- ~~Blank-line detachment for annotations~~ — Resolved implicitly:
+  the lexer normalizes blank lines away, so leading comments attach
+  unconditionally to the following declaration regardless of
+  intervening blank lines.
+- ~~Trailing `;` after `}`~~ — Resolved: rejected. Parser-level test
+  coverage maintained.
+- ~~`@materialized` + `@updatable` interaction~~ — Resolved:
+  rejected. Spec 2.9.3 annotation interaction matrix.
+- ~~Composite PK ordering semantics~~ — Resolved: order is
+  significant. Spec 2.5.1.
+- ~~Type alias scope terminology~~ — Resolved: "parse-unit-level".
+  Spec 2.2.7.
+- ~~Reserved keyword list~~ — Resolved: contextual keywords
+  consolidated in new Spec Section 2.10.
+- ~~`@computed` on nullable columns~~ — Resolved: permitted. Spec
+  3.3.
+- ~~Mixed-literal unions~~ — Resolved: validator error
+  (`heterogeneous_union`). Spec 2.2.6 rule 2.
+- ~~Unknown base-type identifiers~~ — Resolved: validator error
+  (`unknown_base_type`) against the canonical 14-entry list. Spec
+  2.2.1–2.2.4.
+- ~~File-level `@schema` propagation~~ — Resolved: non-adjacent
+  top-level `@schema` becomes the parse-unit default. Spec 2.7.2.
 
 ## 11. References
 
