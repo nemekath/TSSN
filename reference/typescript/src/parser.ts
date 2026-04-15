@@ -14,6 +14,8 @@
  */
 
 import type {
+  Annotation,
+  AliasType,
   ArrayType,
   BaseType,
   Column,
@@ -22,9 +24,15 @@ import type {
   Schema,
   TableDecl,
   TopLevel,
+  TypeAliasDecl,
   TypeExpr,
   UnionType,
+  ViewDecl,
 } from './ast.js';
+import {
+  parseInlineAnnotations,
+  parseLeadingAnnotation,
+} from './annotations.js';
 import { parseInlineConstraints, parseInterfaceConstraint } from './constraints.js';
 import { ParseError } from './errors.js';
 import { LexError, tokenize, type Span, type Token, type TokenKind } from './lexer.js';
@@ -90,6 +98,10 @@ function literalFromToken(tok: Token): Literal {
 class Parser {
   private pos = 0;
   private readonly errors: ParseError[] = [];
+  private readonly aliases = new Map<string, TypeAliasDecl>();
+  /** True once the parser has consumed its first interface or view,
+   *  after which further `type` declarations are invalid per Spec 2.2.7. */
+  private seenDeclarationKeyword = false;
 
   constructor(
     private readonly source: string,
@@ -108,7 +120,36 @@ class Parser {
         continue;
       }
       if (tok.kind === 'ident') {
+        if (tok.value === 'type') {
+          if (this.seenDeclarationKeyword) {
+            this.recordError(
+              'Type aliases must be declared before any interface or view',
+              tok.span
+            );
+            this.recoverToNextDeclaration();
+            pendingComments = [];
+            continue;
+          }
+          try {
+            const alias = this.parseTypeAliasDecl();
+            if (this.aliases.has(alias.name)) {
+              this.recordError(
+                `Duplicate type alias '${alias.name}'`,
+                alias.span
+              );
+            } else {
+              this.aliases.set(alias.name, alias);
+            }
+            declarations.push(alias);
+          } catch (e) {
+            this.handleError(e);
+            this.recoverToNextDeclaration();
+          }
+          pendingComments = [];
+          continue;
+        }
         if (tok.value === 'interface') {
+          this.seenDeclarationKeyword = true;
           try {
             declarations.push(this.parseInterfaceDecl(pendingComments));
           } catch (e) {
@@ -118,8 +159,17 @@ class Parser {
           pendingComments = [];
           continue;
         }
-        // Unknown top-level keyword (view/type are L3; reached via later
-        // phases extending this switch).
+        if (tok.value === 'view') {
+          this.seenDeclarationKeyword = true;
+          try {
+            declarations.push(this.parseViewDecl(pendingComments));
+          } catch (e) {
+            this.handleError(e);
+            this.recoverToNextDeclaration();
+          }
+          pendingComments = [];
+          continue;
+        }
         this.recordError(
           `Unexpected top-level identifier '${tok.value}'`,
           tok.span
@@ -151,27 +201,146 @@ class Parser {
     const { columns, tableConstraints: bodyConstraints } = this.parseBody();
     const endTok = this.expect('rbrace');
 
-    const leadingComments: string[] = [];
-    const leadingConstraints: Constraint[] = [];
-    for (const tok of leading) {
-      const c = parseInterfaceConstraint(tok.value);
-      if (c !== null) {
-        leadingConstraints.push(c);
-      } else {
-        leadingComments.push(tok.value);
-      }
-    }
+    const {
+      annotations,
+      constraints: leadingConstraints,
+      plainComments,
+      schemaName,
+    } = this.classifyLeading(leading);
 
-    return {
+    const decl: TableDecl = {
       kind: 'table',
       name: nameInfo.name,
       quoted: nameInfo.quoted,
       columns,
       tableConstraints: [...leadingConstraints, ...bodyConstraints],
-      annotations: [],
-      leadingComments,
+      annotations,
+      leadingComments: plainComments,
       span: { start: startTok.span.start, end: endTok.span.end },
     };
+    if (schemaName !== undefined) decl.schema = schemaName;
+    return decl;
+  }
+
+  private parseViewDecl(leading: Token[]): ViewDecl {
+    const startTok = this.expectKeyword('view');
+    const nameInfo = this.parseDeclIdent();
+    this.expect('lbrace');
+    const { columns, tableConstraints: bodyConstraints } = this.parseBody();
+    const endTok = this.expect('rbrace');
+
+    const {
+      annotations,
+      constraints: leadingConstraints,
+      plainComments,
+      schemaName,
+    } = this.classifyLeading(leading);
+
+    const materialized = annotations.some((a) => a.key === 'materialized');
+    const updatable = annotations.some((a) => a.key === 'updatable');
+    const readonlyAnnotated = annotations.some((a) => a.key === 'readonly');
+    // Default view semantics are read-only. Explicit @updatable flips it.
+    const readonly = readonlyAnnotated || !updatable;
+
+    const decl: ViewDecl = {
+      kind: 'view',
+      name: nameInfo.name,
+      quoted: nameInfo.quoted,
+      columns,
+      tableConstraints: [...leadingConstraints, ...bodyConstraints],
+      materialized,
+      readonly,
+      updatable,
+      annotations,
+      leadingComments: plainComments,
+      span: { start: startTok.span.start, end: endTok.span.end },
+    };
+    if (schemaName !== undefined) decl.schema = schemaName;
+    return decl;
+  }
+
+  private parseTypeAliasDecl(): TypeAliasDecl {
+    const startTok = this.expectKeyword('type');
+    const nameTok = this.peek();
+    if (nameTok.kind !== 'ident') {
+      throw new ParseError({
+        message: `Expected alias name after 'type', got ${nameTok.kind}`,
+        span: nameTok.span,
+      });
+    }
+    this.consume();
+    this.expect('eq');
+    const rhs = this.parseTypeExpr();
+
+    // Alias-to-alias references are invalid per Spec 2.2.7.
+    if (rhs.kind === 'alias') {
+      throw new ParseError({
+        message: `Type alias '${nameTok.value}' cannot reference another alias '${rhs.name}' — aliases may not nest`,
+        span: rhs.span,
+      });
+    }
+
+    const semi = this.expect('semi');
+
+    // Consume a trailing comment on the same line if present, so it
+    // doesn't attach to the following declaration as a leading comment.
+    const next = this.peek();
+    if (
+      next.kind === 'line_comment' &&
+      next.span.start.line === semi.span.end.line
+    ) {
+      this.consume();
+    }
+
+    return {
+      kind: 'type_alias',
+      name: nameTok.value,
+      rhs,
+      span: { start: startTok.span.start, end: semi.span.end },
+    };
+  }
+
+  private classifyLeading(tokens: Token[]): {
+    annotations: Annotation[];
+    constraints: Constraint[];
+    plainComments: string[];
+    schemaName?: string;
+  } {
+    const annotations: Annotation[] = [];
+    const constraints: Constraint[] = [];
+    const plainComments: string[] = [];
+    let schemaName: string | undefined;
+
+    for (const tok of tokens) {
+      // 1. Multi-column interface constraint: PK(...) / UNIQUE(...) / INDEX(...)
+      const constraint = parseInterfaceConstraint(tok.value);
+      if (constraint !== null) {
+        constraints.push(constraint);
+        continue;
+      }
+
+      // 2. Single-annotation comment: @key / @key: value
+      const annotation = parseLeadingAnnotation(tok.value, tok.span);
+      if (annotation !== null) {
+        annotations.push(annotation);
+        if (annotation.key === 'schema' && annotation.value !== undefined) {
+          schemaName = annotation.value;
+        }
+        continue;
+      }
+
+      // 3. Plain descriptive comment — preserve verbatim for round-trip.
+      plainComments.push(tok.value);
+    }
+
+    const result: {
+      annotations: Annotation[];
+      constraints: Constraint[];
+      plainComments: string[];
+      schemaName?: string;
+    } = { annotations, constraints, plainComments };
+    if (schemaName !== undefined) result.schemaName = schemaName;
+    return result;
   }
 
   // ---------- body ----------
@@ -221,6 +390,13 @@ class Parser {
 
     const constraints =
       rawComment !== null ? parseInlineConstraints(rawComment) : [];
+    const annotations =
+      rawComment !== null
+        ? parseInlineAnnotations(rawComment, {
+            start: startTok.span.start,
+            end: semi.span.end,
+          })
+        : [];
 
     return {
       name: nameInfo.name,
@@ -229,7 +405,7 @@ class Parser {
       type,
       rawComment,
       constraints,
-      annotations: [],
+      annotations,
       span: { start: startTok.span.start, end: semi.span.end },
     };
   }
@@ -295,12 +471,15 @@ class Parser {
     return this.consume();
   }
 
-  private parseSimpleTypeWithArray(): BaseType | ArrayType {
-    const base = this.parseSimpleType();
+  private parseSimpleTypeWithArray(): BaseType | ArrayType | AliasType {
+    const base = this.parseSimpleOrAlias();
+    // Per the grammar, the array suffix only applies to `simple_type`,
+    // not to `alias_ref`. Aliases that happen to expand to an array
+    // type already carry the array shape in their resolved field.
+    if (base.kind === 'alias') return base;
     if (this.peek().kind === 'lbracket') {
-      const lb = this.consume();
+      this.consume();
       const rb = this.expect('rbracket');
-      void lb;
       return {
         kind: 'array',
         element: base,
@@ -310,7 +489,11 @@ class Parser {
     return base;
   }
 
-  private parseSimpleType(): BaseType {
+  /** Reads an identifier and either resolves it as an alias reference
+   *  (if one was declared earlier) or parses it as a base type with
+   *  optional length. Alias resolution is skipped inside the RHS of a
+   *  `type X = ...;` declaration — see `parseTypeAliasDecl`. */
+  private parseSimpleOrAlias(): BaseType | AliasType {
     const tok = this.peek();
     if (tok.kind !== 'ident') {
       throw new ParseError({
@@ -318,8 +501,22 @@ class Parser {
         span: tok.span,
       });
     }
-    this.consume();
 
+    // Alias reference: only valid if the name was previously declared
+    // AND the ident is not followed by `(` (which would indicate a
+    // length-parameterised base type, not an alias reference).
+    const alias = this.aliases.get(tok.value);
+    if (alias !== undefined && this.peek(1).kind !== 'lparen') {
+      this.consume();
+      return {
+        kind: 'alias',
+        name: tok.value,
+        resolved: alias.rhs,
+        span: tok.span,
+      };
+    }
+
+    this.consume();
     let length: number | undefined;
     let endPos = tok.span.end;
 
@@ -417,6 +614,10 @@ class Parser {
   }
 
   private recoverToNextDeclaration(): void {
+    // Always advance past the current token first so we don't get stuck
+    // in a loop when the current token is itself the broken keyword that
+    // triggered recovery (e.g. a misplaced `type` after an interface).
+    if (!this.isEOF()) this.consume();
     while (!this.isEOF()) {
       const tok = this.peek();
       if (
