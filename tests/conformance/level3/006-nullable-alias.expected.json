@@ -1,0 +1,7 @@
+{
+  "kind": "positive",
+  "description": "Nullable column using a type alias",
+  "level": 3,
+  "aliases": [{ "name": "Role" }],
+  "tables": [{ "name": "Members", "columns": ["id", "role"] }]
+}

@@ -1,0 +1,4 @@
+interface Users {
+  id: int;                // PK
+  email: string(255);     // UNIQUE
+}

@@ -1,0 +1,1 @@
+interface Compact { id: int; name: string; active: boolean; }

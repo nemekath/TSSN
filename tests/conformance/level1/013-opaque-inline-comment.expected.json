@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Inline comment content is captured opaquely and parses without error at L1",
+  "level": 1,
+  "tables": [{ "name": "Users", "columns": ["id", "email"] }]
+}

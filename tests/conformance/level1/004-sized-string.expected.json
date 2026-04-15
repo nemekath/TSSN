@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Length parameter on string type",
+  "level": 1,
+  "tables": [{ "name": "Users", "columns": ["email"] }]
+}

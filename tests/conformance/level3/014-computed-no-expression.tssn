@@ -1,0 +1,5 @@
+interface Users {
+  id: int;
+  email: string(255);
+  email_domain: string(255); // @computed
+}

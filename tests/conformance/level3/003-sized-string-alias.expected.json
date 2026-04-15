@@ -1,0 +1,7 @@
+{
+  "kind": "positive",
+  "description": "Type alias over a sized base type",
+  "level": 3,
+  "aliases": [{ "name": "ShortCode" }],
+  "tables": [{ "name": "Codes", "columns": ["id", "code"] }]
+}

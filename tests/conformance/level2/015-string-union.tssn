@@ -1,0 +1,4 @@
+interface Orders {
+  id: int;
+  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
+}

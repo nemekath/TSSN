@@ -1,0 +1,4 @@
+interface Codes {
+  id: int;
+  values: string(10)[];
+}

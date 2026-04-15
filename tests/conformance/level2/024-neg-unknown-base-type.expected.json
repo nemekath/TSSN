@@ -1,0 +1,6 @@
+{
+  "kind": "negative",
+  "description": "Identifier used as a base type that isn't one of the 14 normative base types",
+  "level": 2,
+  "errorCodes": ["unknown_base_type"]
+}

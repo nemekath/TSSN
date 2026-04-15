@@ -1,0 +1,8 @@
+{
+  "kind": "positive",
+  "description": "Nullable computed column — the ? and @computed combine",
+  "level": 3,
+  "tables": [
+    { "name": "Users", "columns": ["id", "middle_initial", "display_name"] }
+  ]
+}

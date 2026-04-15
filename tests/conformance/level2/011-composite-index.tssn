@@ -1,0 +1,6 @@
+// INDEX(created_at, status)
+interface Events {
+  id: int;                // PRIMARY KEY
+  status: string(20);
+  created_at: datetime;
+}

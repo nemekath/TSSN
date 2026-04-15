@@ -1,0 +1,8 @@
+{
+  "kind": "positive",
+  "description": "Basic type alias over a string literal union",
+  "level": 3,
+  "declarationCount": 2,
+  "aliases": [{ "name": "OrderStatus" }],
+  "tables": [{ "name": "Orders", "columns": ["id", "status"] }]
+}

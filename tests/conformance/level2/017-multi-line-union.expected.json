@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Literal union split across multiple lines",
+  "level": 2,
+  "tables": [{ "name": "Orders", "columns": ["id", "status"] }]
+}

@@ -1,0 +1,11 @@
+{
+  "kind": "positive",
+  "description": "All 14 normative base types in one interface",
+  "level": 1,
+  "tables": [
+    {
+      "name": "Kitchen",
+      "columns": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"]
+    }
+  ]
+}

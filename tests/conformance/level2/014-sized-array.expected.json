@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "string(10)[] combines length and array suffix",
+  "level": 2,
+  "tables": [{ "name": "Codes", "columns": ["id", "values"] }]
+}

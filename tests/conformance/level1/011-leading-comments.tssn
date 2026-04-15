@@ -1,0 +1,6 @@
+// Core user accounts table.
+// Created during the v1 schema rollout.
+interface Users {
+  id: int;
+  email: string(255);
+}

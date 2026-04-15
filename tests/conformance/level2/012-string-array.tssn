@@ -1,0 +1,4 @@
+interface Articles {
+  id: int;                // PRIMARY KEY
+  tags: string[];
+}

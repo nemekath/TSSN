@@ -1,0 +1,4 @@
+interface Users {
+  id: int;
+  email?: string;
+}

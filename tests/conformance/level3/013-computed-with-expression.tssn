@@ -1,0 +1,6 @@
+interface Users {
+  id: int;
+  first_name: string(50);
+  last_name: string(50);
+  full_name: string(101);    // @computed: first_name || ' ' || last_name
+}

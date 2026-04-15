@@ -1,0 +1,12 @@
+{
+  "kind": "positive",
+  "description": "@schema: reporting attaches directly to a view",
+  "level": 3,
+  "views": [
+    {
+      "name": "Dashboard",
+      "columns": ["id", "metric"],
+      "schema": "reporting"
+    }
+  ]
+}

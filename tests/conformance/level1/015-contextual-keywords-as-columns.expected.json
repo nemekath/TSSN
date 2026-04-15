@@ -1,0 +1,8 @@
+{
+  "kind": "positive",
+  "description": "Contextual keywords interface/view/type remain valid as column names",
+  "level": 1,
+  "tables": [
+    { "name": "Document", "columns": ["id", "type", "view", "interface"] }
+  ]
+}

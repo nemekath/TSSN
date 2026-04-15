@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Literal string union with four values",
+  "level": 2,
+  "tables": [{ "name": "Orders", "columns": ["id", "status"] }]
+}

@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Doubled backticks inside a quoted identifier decode to a single literal backtick",
+  "level": 2,
+  "tables": [{ "name": "foo`bar", "columns": ["col`umn"] }]
+}

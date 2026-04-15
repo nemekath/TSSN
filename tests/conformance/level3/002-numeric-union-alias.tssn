@@ -1,0 +1,6 @@
+type Priority = 1 | 2 | 3;
+
+interface Tasks {
+  id: int;
+  priority: Priority;
+}

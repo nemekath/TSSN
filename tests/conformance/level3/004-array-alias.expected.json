@@ -1,0 +1,7 @@
+{
+  "kind": "positive",
+  "description": "Type alias over an array type",
+  "level": 3,
+  "aliases": [{ "name": "Tags" }],
+  "tables": [{ "name": "Articles", "columns": ["id", "tags"] }]
+}

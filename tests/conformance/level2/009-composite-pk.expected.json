@@ -1,0 +1,8 @@
+{
+  "kind": "positive",
+  "description": "Composite primary key via interface-level PK(...)",
+  "level": 2,
+  "tables": [
+    { "name": "PostTags", "columns": ["post_id", "tag_id", "tagged_at"] }
+  ]
+}

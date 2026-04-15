@@ -1,0 +1,7 @@
+{
+  "kind": "positive",
+  "description": "An interface declaration with no columns",
+  "level": 1,
+  "declarationCount": 1,
+  "tables": [{ "name": "Empty", "columns": [] }]
+}

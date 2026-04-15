@@ -1,0 +1,6 @@
+type OrderStatus = 'pending' | 'shipped' | 'delivered';
+
+interface Orders {
+  id: int;                // PRIMARY KEY
+  status: OrderStatus;
+}

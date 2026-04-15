@@ -1,0 +1,11 @@
+type Status = 'active' | 'inactive';
+
+interface Users {
+  id: int;
+  status: Status;
+}
+
+interface Organizations {
+  id: int;
+  status: Status;
+}

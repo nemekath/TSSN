@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Multiple annotations and constraints coexisting on the same column comments",
+  "level": 3,
+  "tables": [{ "name": "Users", "columns": ["id", "email", "role"] }]
+}

@@ -1,0 +1,11 @@
+{
+  "kind": "positive",
+  "description": "@deprecated and @since annotations inline on columns alongside constraints",
+  "level": 3,
+  "tables": [
+    {
+      "name": "LegacyOrders",
+      "columns": ["id", "customer_name", "customer_id"]
+    }
+  ]
+}

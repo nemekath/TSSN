@@ -1,0 +1,3 @@
+interface Bad {
+  ratio: 1.5 | 2.5;
+}

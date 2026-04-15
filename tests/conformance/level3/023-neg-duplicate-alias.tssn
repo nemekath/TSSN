@@ -1,0 +1,2 @@
+type Status = 'a' | 'b';
+type Status = 'c' | 'd';

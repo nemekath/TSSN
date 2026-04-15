@@ -1,0 +1,6 @@
+// PK(post_id, tag_id)
+interface PostTags {
+  post_id: int;           // FK -> Posts(id)
+  tag_id: int;            // FK -> Tags(id)
+  tagged_at: datetime;
+}

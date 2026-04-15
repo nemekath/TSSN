@@ -1,0 +1,6 @@
+{
+  "kind": "negative",
+  "description": "Two aliases with the same name are rejected",
+  "level": 3,
+  "errorMessage": "Duplicate"
+}

@@ -1,0 +1,5 @@
+interface Users {
+  id: int;                // PRIMARY KEY, @generated: auto, @since: v1.0
+  email: string(255);     // UNIQUE, @validation: email
+  role: string(20);       // @enum: [admin, user, guest]
+}

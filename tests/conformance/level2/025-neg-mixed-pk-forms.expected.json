@@ -1,0 +1,6 @@
+{
+  "kind": "negative",
+  "description": "Cannot mix inline PRIMARY KEY with interface-level PK(...)",
+  "level": 2,
+  "errorCodes": ["mixed_pk_forms"]
+}

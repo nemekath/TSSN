@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "int[] array type",
+  "level": 2,
+  "tables": [{ "name": "Scores", "columns": ["id", "values"] }]
+}

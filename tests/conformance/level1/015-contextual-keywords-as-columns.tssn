@@ -1,0 +1,6 @@
+interface Document {
+  id: int;
+  type: string(50);
+  view: int;
+  interface: boolean;
+}

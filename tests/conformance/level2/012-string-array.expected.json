@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "string[] array type",
+  "level": 2,
+  "tables": [{ "name": "Articles", "columns": ["id", "tags"] }]
+}

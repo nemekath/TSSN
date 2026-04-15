@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "All columns on one line with the braces",
+  "level": 1,
+  "tables": [{ "name": "Compact", "columns": ["id", "name", "active"] }]
+}

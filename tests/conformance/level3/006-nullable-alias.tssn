@@ -1,0 +1,6 @@
+type Role = 'admin' | 'user' | 'guest';
+
+interface Members {
+  id: int;
+  role?: Role;
+}

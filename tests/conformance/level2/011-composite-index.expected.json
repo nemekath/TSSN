@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Composite INDEX constraint",
+  "level": 2,
+  "tables": [{ "name": "Events", "columns": ["id", "status", "created_at"] }]
+}

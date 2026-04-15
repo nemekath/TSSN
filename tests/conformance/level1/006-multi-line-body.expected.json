@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Multi-line interface body with three columns",
+  "level": 1,
+  "tables": [{ "name": "Users", "columns": ["id", "email", "created_at"] }]
+}

@@ -1,0 +1,4 @@
+interface Scores {
+  id: int;
+  values: int[];
+}

@@ -1,0 +1,4 @@
+interface Placeholder {
+  // This interface has no columns yet.
+  // It is a placeholder for future work.
+}

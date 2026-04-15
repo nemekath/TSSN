@@ -1,0 +1,2 @@
+type A = 'x' | 'y';
+type B = A;

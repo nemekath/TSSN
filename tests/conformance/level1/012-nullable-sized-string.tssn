@@ -1,0 +1,5 @@
+interface Users {
+  id: int;
+  bio?: string(500);
+  phone?: char(20);
+}

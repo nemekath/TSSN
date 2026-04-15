@@ -1,0 +1,4 @@
+interface Orders {
+  id: int;
+  priority: 1 | 2 | 3;
+}

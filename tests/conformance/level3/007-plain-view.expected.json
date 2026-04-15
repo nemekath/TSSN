@@ -1,0 +1,13 @@
+{
+  "kind": "positive",
+  "description": "A plain view declaration is read-only by default",
+  "level": 3,
+  "views": [
+    {
+      "name": "ActiveUsers",
+      "columns": ["id", "email", "last_login"],
+      "materialized": false,
+      "readonly": true
+    }
+  ]
+}

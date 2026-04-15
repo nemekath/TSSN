@@ -1,0 +1,11 @@
+{
+  "kind": "positive",
+  "description": "Backtick-quoted identifiers with spaces in table and column names",
+  "level": 2,
+  "tables": [
+    {
+      "name": "Order Details",
+      "columns": ["Order ID", "Product Name", "Unit Price"]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Leading comments attach to the following interface without affecting columns",
+  "level": 1,
+  "tables": [{ "name": "Users", "columns": ["id", "email"] }]
+}

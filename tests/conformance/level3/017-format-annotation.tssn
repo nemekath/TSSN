@@ -1,0 +1,6 @@
+interface GeoData {
+  id: int;                // PRIMARY KEY
+  location: string;       // @format: wkt
+  ip_range: string;       // @format: cidr
+  metadata: text;         // @format: xml
+}
