@@ -17,12 +17,15 @@ import type {
   ArrayType,
   BaseType,
   Column,
+  Constraint,
+  Literal,
   Schema,
   TableDecl,
   TopLevel,
   TypeExpr,
   UnionType,
 } from './ast.js';
+import { parseInlineConstraints, parseInterfaceConstraint } from './constraints.js';
 import { ParseError } from './errors.js';
 import { LexError, tokenize, type Span, type Token, type TokenKind } from './lexer.js';
 
@@ -64,6 +67,22 @@ export function parse(source: string, opts: ParseOptions = {}): Schema {
     );
   }
   return schema;
+}
+
+// ---------- helpers ----------
+
+function literalFromToken(tok: Token): Literal {
+  if (tok.kind === 'string') {
+    return { kind: 'string', value: tok.value };
+  }
+  if (tok.kind === 'number') {
+    const n = Number.parseInt(tok.value, 10);
+    return { kind: 'number', value: n };
+  }
+  throw new ParseError({
+    message: `Expected literal, got ${tok.kind}`,
+    span: tok.span,
+  });
 }
 
 // ---------- Parser class ----------
@@ -129,17 +148,26 @@ class Parser {
     const startTok = this.expectKeyword('interface');
     const nameInfo = this.parseDeclIdent();
     this.expect('lbrace');
-    const { columns } = this.parseBody();
+    const { columns, tableConstraints: bodyConstraints } = this.parseBody();
     const endTok = this.expect('rbrace');
 
-    const leadingComments = leading.map((t) => t.value);
+    const leadingComments: string[] = [];
+    const leadingConstraints: Constraint[] = [];
+    for (const tok of leading) {
+      const c = parseInterfaceConstraint(tok.value);
+      if (c !== null) {
+        leadingConstraints.push(c);
+      } else {
+        leadingComments.push(tok.value);
+      }
+    }
 
     return {
       kind: 'table',
       name: nameInfo.name,
       quoted: nameInfo.quoted,
       columns,
-      tableConstraints: [],
+      tableConstraints: [...leadingConstraints, ...bodyConstraints],
       annotations: [],
       leadingComments,
       span: { start: startTok.span.start, end: endTok.span.end },
@@ -148,14 +176,15 @@ class Parser {
 
   // ---------- body ----------
 
-  private parseBody(): { columns: Column[] } {
+  private parseBody(): { columns: Column[]; tableConstraints: Constraint[] } {
     const columns: Column[] = [];
+    const tableConstraints: Constraint[] = [];
     while (!this.isEOF() && this.peek().kind !== 'rbrace') {
       const tok = this.peek();
       if (tok.kind === 'line_comment') {
-        // Phase 4: interface-level comments inside the body are ignored
-        // for now. L2 will parse PK/UNIQUE/INDEX forms out of them.
-        this.consume();
+        const commentTok = this.consume();
+        const constraint = parseInterfaceConstraint(commentTok.value);
+        if (constraint) tableConstraints.push(constraint);
         continue;
       }
       try {
@@ -166,7 +195,7 @@ class Parser {
         if (this.peek().kind === 'semi') this.consume();
       }
     }
-    return { columns };
+    return { columns, tableConstraints };
   }
 
   private parseColumn(): Column {
@@ -190,13 +219,16 @@ class Parser {
       rawComment = this.consume().value;
     }
 
+    const constraints =
+      rawComment !== null ? parseInlineConstraints(rawComment) : [];
+
     return {
       name: nameInfo.name,
       quoted: nameInfo.quoted,
       nullable,
       type,
       rawComment,
-      constraints: [],
+      constraints,
       annotations: [],
       span: { start: startTok.span.start, end: semi.span.end },
     };
@@ -204,13 +236,81 @@ class Parser {
 
   // ---------- type expressions ----------
 
-  /** Dispatch point for the three `type_expr` alternatives. Phase 4 only
-   *  handles `simple_type`; later phases extend this. */
+  /** Dispatch point for the three `type_expr` alternatives in the
+   *  grammar. A literal (`string` or `number` token) signals a union.
+   *  Otherwise the type begins with an `ident` and we parse a simple
+   *  type, optionally followed by an array suffix. Alias references are
+   *  handled transparently in `parseSimpleType` (Phase 6). */
   private parseTypeExpr(): TypeExpr {
-    return this.parseSimpleType();
+    const tok = this.peek();
+    if (tok.kind === 'string' || tok.kind === 'number') {
+      return this.parseUnionType();
+    }
+    if (tok.kind === 'ident') {
+      return this.parseSimpleTypeWithArray();
+    }
+    throw new ParseError({
+      message: `Expected type expression, got ${tok.kind}`,
+      span: tok.span,
+    });
   }
 
-  private parseSimpleType(): BaseType | ArrayType | UnionType {
+  private parseUnionType(): UnionType {
+    const startTok = this.peek();
+    const literals: Literal[] = [];
+    const firstTok = this.expectLiteralToken();
+    literals.push(literalFromToken(firstTok));
+    let endPos = firstTok.span.end;
+
+    if (this.peek().kind !== 'pipe') {
+      throw new ParseError({
+        message:
+          'A single literal is not a valid type — use a base type or a union of at least two literals',
+        span: startTok.span,
+      });
+    }
+
+    while (this.peek().kind === 'pipe') {
+      this.consume();
+      const nextTok = this.expectLiteralToken();
+      literals.push(literalFromToken(nextTok));
+      endPos = nextTok.span.end;
+    }
+
+    return {
+      kind: 'union',
+      literals,
+      span: { start: startTok.span.start, end: endPos },
+    };
+  }
+
+  private expectLiteralToken(): Token {
+    const tok = this.peek();
+    if (tok.kind !== 'string' && tok.kind !== 'number') {
+      throw new ParseError({
+        message: `Expected string or number literal, got ${tok.kind}`,
+        span: tok.span,
+      });
+    }
+    return this.consume();
+  }
+
+  private parseSimpleTypeWithArray(): BaseType | ArrayType {
+    const base = this.parseSimpleType();
+    if (this.peek().kind === 'lbracket') {
+      const lb = this.consume();
+      const rb = this.expect('rbracket');
+      void lb;
+      return {
+        kind: 'array',
+        element: base,
+        span: { start: base.span.start, end: rb.span.end },
+      };
+    }
+    return base;
+  }
+
+  private parseSimpleType(): BaseType {
     const tok = this.peek();
     if (tok.kind !== 'ident') {
       throw new ParseError({
