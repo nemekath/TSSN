@@ -25,9 +25,34 @@ import type {
   Schema,
   TableDecl,
   TypeAliasDecl,
+  TypeExpr,
+  UnionType,
   ViewDecl,
 } from './ast.js';
 import type { Span } from './lexer.js';
+
+/** The 14 normative base types from Spec Sections 2.2.1–2.2.4. Any
+ *  identifier used as a base type MUST appear in this set. */
+const BASE_TYPES = new Set<string>([
+  // Numeric
+  'int',
+  'decimal',
+  'float',
+  'number',
+  // String
+  'string',
+  'char',
+  'text',
+  // Temporal
+  'datetime',
+  'date',
+  'time',
+  // Other
+  'boolean',
+  'blob',
+  'uuid',
+  'json',
+]);
 
 export interface ValidationError {
   code: string;
@@ -49,6 +74,11 @@ export function validate(schema: Schema): ValidationError[] {
 
   checkDuplicateAliases(aliases, errors);
   checkAliasSelfReference(aliases, errors);
+  checkAliasShadowsBaseType(aliases, errors);
+  for (const a of aliases) {
+    checkTypeExprBaseTypes(a.rhs, errors);
+    checkUnionHomogeneity(a.rhs, errors);
+  }
   checkDuplicateDeclarationNames([...tables, ...views], errors);
 
   for (const table of tables) {
@@ -56,15 +86,103 @@ export function validate(schema: Schema): ValidationError[] {
     checkMixedPkForms(table, errors);
     checkCompositeColumnRefs(table, errors);
     checkMaterializedOnTable(table, errors);
+    for (const col of table.columns) {
+      checkTypeExprBaseTypes(col.type, errors);
+      checkUnionHomogeneity(col.type, errors);
+    }
   }
 
   for (const view of views) {
     checkDuplicateColumns(view.columns, errors);
     checkCompositeColumnRefs(view, errors);
     checkViewAnnotationCombinations(view, errors);
+    for (const col of view.columns) {
+      checkTypeExprBaseTypes(col.type, errors);
+      checkUnionHomogeneity(col.type, errors);
+    }
   }
 
   return errors;
+}
+
+// ---------- Q2/Q11/Q12 checks ----------
+
+function checkAliasShadowsBaseType(
+  aliases: TypeAliasDecl[],
+  errors: ValidationError[]
+): void {
+  for (const a of aliases) {
+    if (BASE_TYPES.has(a.name)) {
+      errors.push({
+        code: 'alias_shadows_base_type',
+        message: `Type alias '${a.name}' collides with a TSSN base type — pick a different name`,
+        span: a.span,
+      });
+    }
+  }
+}
+
+/** Walks a TypeExpr looking for BaseType nodes whose `base` is not one
+ *  of the 14 normative base types. Does not descend into AliasType.resolved
+ *  because that resolution was already checked when the alias was
+ *  declared. */
+function checkTypeExprBaseTypes(
+  expr: TypeExpr,
+  errors: ValidationError[]
+): void {
+  if (expr.kind === 'base') {
+    if (!BASE_TYPES.has(expr.base)) {
+      errors.push({
+        code: 'unknown_base_type',
+        message: `Unknown base type '${expr.base}' — valid base types are: ${[...BASE_TYPES].sort().join(', ')}`,
+        span: expr.span,
+      });
+    }
+    return;
+  }
+  if (expr.kind === 'array') {
+    checkTypeExprBaseTypes(expr.element, errors);
+    return;
+  }
+  if (expr.kind === 'union') {
+    // Literals carry no base types; nothing to check here.
+    return;
+  }
+  // alias: resolved is validated at the declaration site
+}
+
+/** Walks a TypeExpr looking for UnionType nodes whose literals are not
+ *  all of the same kind (all 'string' or all 'number'). */
+function checkUnionHomogeneity(
+  expr: TypeExpr,
+  errors: ValidationError[]
+): void {
+  if (expr.kind === 'union') {
+    flagIfHeterogeneous(expr, errors);
+    return;
+  }
+  if (expr.kind === 'array') {
+    checkUnionHomogeneity(expr.element, errors);
+    return;
+  }
+  // base, alias: nothing to check
+}
+
+function flagIfHeterogeneous(
+  union: UnionType,
+  errors: ValidationError[]
+): void {
+  if (union.literals.length === 0) return;
+  const firstKind = union.literals[0]!.kind;
+  const mixed = union.literals.some((l) => l.kind !== firstKind);
+  if (mixed) {
+    errors.push({
+      code: 'heterogeneous_union',
+      message:
+        'Literal union must be homogeneous: all strings or all numbers, not a mix',
+      span: union.span,
+    });
+  }
 }
 
 function checkViewAnnotationCombinations(

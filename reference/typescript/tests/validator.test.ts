@@ -178,6 +178,114 @@ describe('validator / view annotation combinations', () => {
   });
 });
 
+describe('validator / alias shadowing a base type (Q2)', () => {
+  it('rejects type int = ...;', () => {
+    const errs = errorsFor("type int = 'a' | 'b';");
+    expect(errs.some((m) => /alias_shadows_base_type/.test(m))).toBe(true);
+  });
+
+  it('rejects type string = string(50);', () => {
+    const errs = errorsFor('type string = string(50);');
+    expect(errs.some((m) => /alias_shadows_base_type.*string/.test(m))).toBe(true);
+  });
+
+  it('rejects every base type name', () => {
+    for (const name of [
+      'int',
+      'decimal',
+      'float',
+      'number',
+      'string',
+      'char',
+      'text',
+      'datetime',
+      'date',
+      'time',
+      'boolean',
+      'blob',
+      'uuid',
+      'json',
+    ]) {
+      const errs = errorsFor(`type ${name} = 'x' | 'y';`);
+      expect(
+        errs.some((m) => new RegExp(`alias_shadows_base_type.*${name}`).test(m))
+      ).toBe(true);
+    }
+  });
+
+  it('accepts PascalCase alias names that do not collide', () => {
+    expect(errorsFor("type Status = 'a' | 'b';")).toEqual([]);
+  });
+});
+
+describe('validator / mixed-literal unions (Q11)', () => {
+  it('rejects a column union mixing strings and numbers', () => {
+    const errs = errorsFor("interface X { v: 'a' | 1; }");
+    expect(errs.some((m) => /heterogeneous_union/.test(m))).toBe(true);
+  });
+
+  it('rejects a mixed union inside a type alias', () => {
+    const errs = errorsFor("type Bad = 'a' | 1;");
+    expect(errs.some((m) => /heterogeneous_union/.test(m))).toBe(true);
+  });
+
+  it('accepts homogeneous string unions', () => {
+    expect(errorsFor("interface X { v: 'a' | 'b'; }")).toEqual([]);
+  });
+
+  it('accepts homogeneous numeric unions', () => {
+    expect(errorsFor('interface X { v: 1 | 2 | 3; }')).toEqual([]);
+  });
+});
+
+describe('validator / unknown base types (Q12)', () => {
+  it('rejects an unknown ident used as a column type', () => {
+    const errs = errorsFor('interface X { v: Foobar; }');
+    expect(errs.some((m) => /unknown_base_type.*Foobar/.test(m))).toBe(true);
+  });
+
+  it('rejects an unknown base type wrapped in an array', () => {
+    const errs = errorsFor('interface X { v: Foobar[]; }');
+    expect(errs.some((m) => /unknown_base_type.*Foobar/.test(m))).toBe(true);
+  });
+
+  it('rejects an unknown base type inside a type alias RHS', () => {
+    const errs = errorsFor('type Bad = Foobar;');
+    expect(errs.some((m) => /unknown_base_type.*Foobar/.test(m))).toBe(true);
+  });
+
+  it('accepts the 14 canonical base types', () => {
+    for (const name of [
+      'int',
+      'decimal',
+      'float',
+      'number',
+      'string',
+      'char',
+      'text',
+      'datetime',
+      'date',
+      'time',
+      'boolean',
+      'blob',
+      'uuid',
+      'json',
+    ]) {
+      const maybeSized = name === 'string' || name === 'char' ? `${name}(10)` : name;
+      expect(errorsFor(`interface X { v: ${maybeSized}; }`)).toEqual([]);
+    }
+  });
+
+  it('accepts an alias used as a column type (not routed as a base type)', () => {
+    expect(
+      errorsFor(`
+        type Status = 'a' | 'b';
+        interface X { status: Status; }
+      `)
+    ).toEqual([]);
+  });
+});
+
 describe('parse() integration', () => {
   it('surfaces validation errors via AggregateError', () => {
     expect(() => parse('interface X { id: int; id: int; }')).toThrow(AggregateError);

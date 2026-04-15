@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parse } from '../src/parser.js';
+import { parse, parseRaw } from '../src/parser.js';
 import { tables, type Literal, type UnionType } from '../src/ast.js';
 
 function firstColumn(src: string) {
@@ -65,13 +65,32 @@ describe('parser / literal union types', () => {
   });
 
   it('rejects mixed string and numeric literals in a union', () => {
-    // Grammar allows it syntactically (both are literals) so this is
-    // technically parseable. The validator would flag it as semantically
-    // suspect, but for v0.8 we accept it at parse time for maximum
-    // compatibility with terse enums.
-    const u = union("interface X { v: 'yes' | 1; }");
-    expect(u.literals).toHaveLength(2);
-    expect(u.literals[0]!.kind).toBe('string');
-    expect(u.literals[1]!.kind).toBe('number');
+    // Per Spec 2.2.6 (added in 0.8), unions MUST be homogeneous.
+    // Grammar accepts the token sequence but the validator rejects it.
+    expect(() => parse("interface X { v: 'yes' | 1; }")).toThrow(AggregateError);
+  });
+
+  it('reports the heterogeneous_union error code for mixed literals', () => {
+    const { schema, errors: parseErrors } = parseRaw(
+      "interface X { v: 'yes' | 1; }"
+    );
+    // Parser succeeds, validator rejects at parse() level; use parseRaw
+    // to inspect the raw parse first
+    expect(parseErrors).toEqual([]);
+    // Now run the full parse which includes validation
+    try {
+      parse("interface X { v: 'yes' | 1; }");
+    } catch (e) {
+      if (e instanceof AggregateError) {
+        const messages = (e.errors as Array<{ code?: string }>).map(
+          (er) => er.code
+        );
+        expect(messages).toContain('heterogeneous_union');
+      } else {
+        throw e;
+      }
+    }
+    // The raw schema still contains the union so downstream inspection works
+    expect(schema.declarations).toHaveLength(1);
   });
 });

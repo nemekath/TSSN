@@ -121,12 +121,20 @@ describe('parser / type aliases', () => {
     expect(result.errors.some((e) => /duplicate/i.test(e.message))).toBe(true);
   });
 
-  it('falls back to base-type interpretation for unknown ident that looks like an alias', () => {
-    // With no alias declared, MyCustomType is treated as a base type.
-    const schema = parse('interface X { v: MyCustomType; }');
+  it('parser returns a BaseType for unknown idents; validator rejects them', () => {
+    // Per Spec 2.2.1-2.2.4 (Q12), unknown base-type names are rejected
+    // at semantic-check time. The parser still builds a BaseType node
+    // so inspection tools can see what was written; parse() throws via
+    // the validator.
+    const { schema, errors: parseErrors } = parseRaw(
+      'interface X { v: MyCustomType; }'
+    );
+    expect(parseErrors).toEqual([]);
     const col = tables(schema)[0]!.columns[0]!;
     expect(col.type.kind).toBe('base');
     expect((col.type as BaseType).base).toBe('MyCustomType');
+    // But full parse() rejects via the validator
+    expect(() => parse('interface X { v: MyCustomType; }')).toThrow(AggregateError);
   });
 
   it('rejects an alias applied with an array suffix in a type-alias RHS', () => {
