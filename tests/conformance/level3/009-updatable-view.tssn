@@ -1,0 +1,5 @@
+// @updatable
+view EditableProjects {
+  id: int;
+  name: string(200);
+}

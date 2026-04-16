@@ -1,0 +1,7 @@
+{
+  "kind": "positive",
+  "description": "Type alias over a numeric literal union",
+  "level": 3,
+  "aliases": [{ "name": "Priority" }],
+  "tables": [{ "name": "Tasks", "columns": ["id", "priority"] }]
+}

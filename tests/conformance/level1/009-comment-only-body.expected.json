@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Interface body that contains only comments parses with zero columns",
+  "level": 1,
+  "tables": [{ "name": "Placeholder", "columns": [] }]
+}

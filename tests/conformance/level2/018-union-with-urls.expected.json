@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "String literal values containing // are preserved, not treated as comments",
+  "level": 2,
+  "tables": [{ "name": "Endpoints", "columns": ["id", "scheme"] }]
+}

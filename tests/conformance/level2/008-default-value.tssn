@@ -1,0 +1,4 @@
+interface Users {
+  id: int;                // PRIMARY KEY
+  created_at: datetime;   // DEFAULT CURRENT_TIMESTAMP
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "positive",
+  "description": "@updatable flips the default read-only semantic",
+  "level": 3,
+  "views": [
+    {
+      "name": "EditableProjects",
+      "columns": ["id", "name"],
+      "materialized": false,
+      "readonly": false
+    }
+  ]
+}

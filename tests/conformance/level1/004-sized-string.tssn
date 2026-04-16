@@ -1,0 +1,3 @@
+interface Users {
+  email: string(255);
+}

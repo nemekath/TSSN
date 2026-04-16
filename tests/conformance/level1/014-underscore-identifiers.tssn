@@ -1,0 +1,4 @@
+interface _Internal {
+  _id: int;
+  _created_at: datetime;
+}

@@ -12,3 +12,7 @@ Thumbs.db
 # Backup files
 *.bak
 *.tmp
+
+# Claude Code local state (keep agent definitions under .claude/agents/)
+.claude/settings.local.json
+.claude/state/

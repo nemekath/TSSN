@@ -1,0 +1,13 @@
+{
+  "kind": "positive",
+  "description": "View marked @materialized is read-only and materialized",
+  "level": 3,
+  "views": [
+    {
+      "name": "UserStats",
+      "columns": ["user_id", "total_orders", "lifetime_value"],
+      "materialized": true,
+      "readonly": true
+    }
+  ]
+}

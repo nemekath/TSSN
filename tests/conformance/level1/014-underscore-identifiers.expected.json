@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Underscore-leading identifiers are valid in both tables and columns",
+  "level": 1,
+  "tables": [{ "name": "_Internal", "columns": ["_id", "_created_at"] }]
+}

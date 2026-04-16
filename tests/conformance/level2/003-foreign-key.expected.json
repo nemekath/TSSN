@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Single-schema foreign key reference",
+  "level": 2,
+  "tables": [{ "name": "Orders", "columns": ["id", "user_id"] }]
+}

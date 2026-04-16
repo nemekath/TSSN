@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Nullable ? combined with sized base types",
+  "level": 1,
+  "tables": [{ "name": "Users", "columns": ["id", "bio", "phone"] }]
+}

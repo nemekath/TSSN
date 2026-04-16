@@ -1,0 +1,32 @@
+{
+  "kind": "positive",
+  "description": "Condensed multi-feature schema exercising aliases, composite PK, array, FK, view, and sticky @schema",
+  "level": 3,
+  "aliases": [{ "name": "UserRole" }, { "name": "ProjectStatus" }],
+  "tables": [
+    {
+      "name": "Users",
+      "columns": ["id", "email", "role", "created_at"],
+      "schema": "app"
+    },
+    {
+      "name": "ProjectMembers",
+      "columns": ["user_id", "project_id", "joined_at"],
+      "schema": "app"
+    },
+    {
+      "name": "Projects",
+      "columns": ["id", "name", "status", "tags"],
+      "schema": "app"
+    }
+  ],
+  "views": [
+    {
+      "name": "ActiveProjects",
+      "columns": ["id", "name", "status"],
+      "materialized": false,
+      "readonly": true,
+      "schema": "app"
+    }
+  ]
+}

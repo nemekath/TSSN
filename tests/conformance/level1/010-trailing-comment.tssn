@@ -1,0 +1,1 @@
+interface Users { id: int; } // end of table declaration

@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Numeric literal union",
+  "level": 2,
+  "tables": [{ "name": "Orders", "columns": ["id", "priority"] }]
+}

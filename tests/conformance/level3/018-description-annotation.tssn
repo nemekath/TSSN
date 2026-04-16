@@ -1,0 +1,5 @@
+// @description: Core user account storage
+interface Users {
+  id: int;
+  email: string(255);
+}

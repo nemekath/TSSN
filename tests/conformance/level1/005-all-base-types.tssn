@@ -1,0 +1,16 @@
+interface Kitchen {
+  a: int;
+  b: decimal;
+  c: float;
+  d: number;
+  e: string;
+  f: char(3);
+  g: text;
+  h: datetime;
+  i: date;
+  j: time;
+  k: boolean;
+  l: blob;
+  m: uuid;
+  n: json;
+}

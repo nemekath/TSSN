@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "One interface, one int column",
+  "level": 1,
+  "tables": [{ "name": "Users", "columns": ["id"] }]
+}

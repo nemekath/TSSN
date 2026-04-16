@@ -1,0 +1,3 @@
+interface A { id: int; }
+
+type Late = 'a' | 'b';

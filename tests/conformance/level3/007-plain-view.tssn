@@ -1,0 +1,5 @@
+view ActiveUsers {
+  id: int;                // PRIMARY KEY
+  email: string(255);
+  last_login: datetime;
+}

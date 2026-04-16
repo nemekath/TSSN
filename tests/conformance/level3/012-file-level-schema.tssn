@@ -1,0 +1,12 @@
+// @schema: app
+type Status = 'a' | 'b';
+
+interface Users {
+  id: int;
+  status: Status;
+}
+
+interface Projects {
+  id: int;
+  status: Status;
+}

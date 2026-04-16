@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "FK with an ON DELETE CASCADE tail",
+  "level": 2,
+  "tables": [{ "name": "Orders", "columns": ["id", "user_id"] }]
+}

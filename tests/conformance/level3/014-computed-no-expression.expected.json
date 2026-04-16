@@ -1,0 +1,8 @@
+{
+  "kind": "positive",
+  "description": "@computed annotation without an expression is valid; expression is optional",
+  "level": 3,
+  "tables": [
+    { "name": "Users", "columns": ["id", "email", "email_domain"] }
+  ]
+}

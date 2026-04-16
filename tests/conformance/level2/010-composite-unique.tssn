@@ -1,0 +1,6 @@
+// UNIQUE(user_id, org_id)
+interface Memberships {
+  id: int;                // PRIMARY KEY
+  user_id: int;           // FK -> Users(id)
+  org_id: int;            // FK -> Organizations(id)
+}

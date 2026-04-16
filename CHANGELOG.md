@@ -8,9 +8,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Under Discussion
-- View definitions alongside tables
 - Temporal table syntax for history/versioning
 - Graph database relationship syntax
+- Soft-delete standardization (`@softdelete` annotation)
+- Rebrand to LINDT (deferred — revisit for 1.0)
+
+## [0.8.0] - 2026-04-14 (Draft)
+
+**Theme:** Reusability & Conformance — higher semantic density for read-query
+generation and a clear conformance story for implementers.
+
+### Added
+
+- **Section 2.2.7: Type Aliases** — Reusable literal unions and sized types
+  ```typescript
+  type OrderStatus = 'pending' | 'shipped' | 'delivered' | 'cancelled';
+  interface Orders { status: OrderStatus; }
+  ```
+  Declared once at the top of the schema, referenced from any column.
+  Highest-leverage feature for schemas with repeated enums — pays the token
+  cost for a union once instead of N times.
+- **Section 2.5.1: Composite Primary Keys** — Explicit `PK(col1, col2, ...)`
+  form at the interface level for tables without a surrogate key
+- **Section 2.5.2: Multi-Column Constraint Patterns** — Canonical table of
+  supported `PK(...)` / `UNIQUE(...)` / `INDEX(...)` forms
+- **Section 2.9: Views** — First-class `view` keyword, distinct from
+  `interface`
+  - `@materialized` annotation for cached views
+  - `@readonly` / `@updatable` annotations for write-semantics hints
+  - Rationale: LLMs need to distinguish tables from views to avoid proposing
+    writes against views, re-joining pre-joined data, or trusting materialized
+    view freshness
+- **Section 3.3: Computed Columns** — `@computed` annotation with optional
+  expression
+  - Informs LLMs that the column is derived and may not be indexed
+  - Database mapping table for PostgreSQL, SQL Server, MySQL, Oracle
+- **Section 5.1: Conformance Levels** — Three-tier conformance model
+  - **Level 1 (Core)**: Interface declarations, base types, nullability,
+    opaque comments
+  - **Level 2 (Standard)**: Structured constraints, multi-column constraints,
+    arrays, literal unions, quoted identifiers, cross-schema FK triples
+  - **Level 3 (Extended)**: Type aliases, views, view annotations, full
+    domain annotations
+  - Each implementation MUST declare its target level
+- **Section 5.4: Conformance Test Suite** — Official `tests/conformance/`
+  directory with `.tssn` inputs and `.ast.json` expected outputs, grouped
+  by level
+
+### Changed
+
+- **EBNF Grammar** — Added `type_alias`, `view_decl`, `alias_ref` productions;
+  `schema` now admits top-level aliases and views in any order
+- **Implementation Guidelines** — Split into Parser / Generator / Conformance
+  sections; generators at Level 3 SHOULD factor out repeated literal unions
+  as type aliases
+- **IMPLEMENTATION.md** — Pseudocode updated with `parse_type_alias`,
+  `resolve_aliases`, `parse_interface(kind=...)`, `parse_interface_level_constraint`,
+  and new data-structure fields (`Table.kind`, `Column.alias_name`,
+  `Constraint.reference_schema`, `Schema.type_aliases`, `Schema.views`)
+- **Cross-schema FKs** — Foreign-key parser now captures an optional schema
+  prefix `schema.Table(col)` as a structured `(schema, table, column)` triple
+  instead of a flat string
+
+### Rationale
+
+Four themes converge in v0.8:
+
+1. **Token efficiency through reuse**. Literal unions from v0.7 are
+   high-impact but self-sabotage when the same enum appears in 20 tables.
+   Type aliases eliminate the repetition — pure information reuse with no
+   semantic loss.
+2. **Read-query precision**. `view`, `@computed`, and composite PK clarity
+   all give LLMs more accurate signals about what a query against the schema
+   will actually do.
+3. **Implementability**. Conformance Levels make "what does it mean for a
+   parser to support TSSN?" a concrete, testable question for the first time.
+4. **Closing loose ends**. Composite primary keys and cross-schema FK
+   triples were under-specified in v0.6/v0.7 — 0.8 makes both canonical.
 
 ## [0.7.0] - 2025-11-26 (Draft)
 
@@ -166,10 +240,8 @@ The following features are under discussion and consideration for future version
 - Clarifications to specification based on implementation experience
 
 **Extended Schema Support**
-- Multi-schema support with explicit schema prefixes
-- View definitions and materialized views
-- Computed column syntax
 - Temporal table syntax for history/versioning
+- Row-level security / tenant scoping hints
 
 **Advanced Database Features**
 - Graph relationship syntax for graph databases

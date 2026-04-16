@@ -1,0 +1,31 @@
+// @schema: app
+
+type UserRole = 'admin' | 'member' | 'guest';
+type ProjectStatus = 'active' | 'archived';
+
+interface Users {
+  id: int;                // PRIMARY KEY, AUTO_INCREMENT
+  email: string(255);     // UNIQUE
+  role: UserRole;
+  created_at: datetime;   // DEFAULT CURRENT_TIMESTAMP
+}
+
+// PK(user_id, project_id)
+interface ProjectMembers {
+  user_id: int;           // FK -> Users(id), ON DELETE CASCADE
+  project_id: int;        // FK -> Projects(id), ON DELETE CASCADE
+  joined_at: datetime;
+}
+
+interface Projects {
+  id: int;                // PRIMARY KEY, AUTO_INCREMENT
+  name: string(200);
+  status: ProjectStatus;
+  tags: string[];
+}
+
+view ActiveProjects {
+  id: int;                // PRIMARY KEY
+  name: string(200);
+  status: ProjectStatus;
+}

@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Short PK form and inline UNIQUE",
+  "level": 2,
+  "tables": [{ "name": "Users", "columns": ["id", "email"] }]
+}

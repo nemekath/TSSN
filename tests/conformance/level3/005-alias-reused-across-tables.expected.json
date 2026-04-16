@@ -1,0 +1,10 @@
+{
+  "kind": "positive",
+  "description": "Same alias used in two different tables",
+  "level": 3,
+  "aliases": [{ "name": "Status" }],
+  "tables": [
+    { "name": "Users", "columns": ["id", "status"] },
+    { "name": "Organizations", "columns": ["id", "status"] }
+  ]
+}

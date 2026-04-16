@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Inline PRIMARY KEY constraint on a column",
+  "level": 2,
+  "tables": [{ "name": "Users", "columns": ["id", "email"] }]
+}

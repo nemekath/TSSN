@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "@description leading annotation captures table-level metadata",
+  "level": 3,
+  "tables": [{ "name": "Users", "columns": ["id", "email"] }]
+}

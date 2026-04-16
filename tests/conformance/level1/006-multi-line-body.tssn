@@ -1,0 +1,5 @@
+interface Users {
+  id: int;
+  email: string(255);
+  created_at: datetime;
+}

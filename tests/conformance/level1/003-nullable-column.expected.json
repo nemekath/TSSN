@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Nullable column via ? suffix",
+  "level": 1,
+  "tables": [{ "name": "Users", "columns": ["id", "email"] }]
+}

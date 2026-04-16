@@ -1,0 +1,4 @@
+interface Users {
+  id: int;                // PRIMARY KEY, AUTO_INCREMENT
+  email: string(255);
+}

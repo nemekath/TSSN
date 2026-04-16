@@ -1,0 +1,5 @@
+// PK(a, b)
+interface Bad {
+  a: int;                 // PRIMARY KEY
+  b: int;
+}

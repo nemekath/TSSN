@@ -1,0 +1,8 @@
+{
+  "kind": "positive",
+  "description": "@schema: auth attaches directly to a single interface",
+  "level": 3,
+  "tables": [
+    { "name": "Users", "columns": ["id", "email"], "schema": "auth" }
+  ]
+}

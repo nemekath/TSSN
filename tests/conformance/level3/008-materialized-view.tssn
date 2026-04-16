@@ -1,0 +1,6 @@
+// @materialized
+view UserStats {
+  user_id: int;           // PRIMARY KEY
+  total_orders: int;
+  lifetime_value: decimal;
+}

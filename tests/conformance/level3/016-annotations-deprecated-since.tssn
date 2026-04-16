@@ -1,0 +1,5 @@
+interface LegacyOrders {
+  id: int;
+  customer_name: string;       // @deprecated: use customer_id
+  customer_id?: int;           // FK -> Customers(id), @since: v2.0
+}

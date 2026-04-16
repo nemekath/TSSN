@@ -1,7 +1,7 @@
 # TSSN - TypeScript-Style Schema Notation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.7.0--draft-orange.svg)](https://github.com/nemekath/TSSN)
+[![Version](https://img.shields.io/badge/version-0.8.0--draft-orange.svg)](https://github.com/nemekath/TSSN)
 
 > A token-efficient, human-readable format for representing database schemas
 
@@ -48,6 +48,44 @@ interface Users {
 - **Extensible**: Support for domain-specific annotations
 - **Language Agnostic**: Not tied to any specific database or programming language
 
+## ✨ New in v0.8 (draft)
+
+- **Type aliases** — define a literal union or sized type once, reuse
+  it across tables. Huge token savings for schemas with shared enums.
+- **First-class views** — the `view` keyword, distinct from
+  `interface`, plus `@materialized` / `@readonly` / `@updatable`
+  annotations.
+- **Composite primary keys** — explicit `PK(col1, col2, …)` form for
+  tables without a surrogate key.
+- **`@computed` annotation** — marks derived columns so LLMs avoid
+  proposing `INSERT`/`UPDATE` and understand indexing caveats.
+- **Conformance Levels** — L1 Core / L2 Standard / L3 Extended, each
+  with a defined feature matrix. Implementations declare the level
+  they claim.
+- **File-level `@schema` propagation** — one top-of-file `@schema`
+  applies to every declaration without repetition.
+
+See the [v0.8 changelog entry](CHANGELOG.md#080---2026-04-14-draft)
+and the [full spec](TSSN-SPEC.md) for normative text.
+
+```typescript
+type OrderStatus = 'pending' | 'shipped' | 'delivered' | 'cancelled';
+
+// PK(user_id, order_id)
+interface UserOrders {
+  user_id: int;              // FK -> Users(id), ON DELETE CASCADE
+  order_id: int;             // FK -> Orders(id)
+  status: OrderStatus;
+}
+
+// @materialized
+view ActiveOrders {
+  order_id: int;             // PRIMARY KEY
+  user_id: int;
+  status: OrderStatus;
+}
+```
+
 ## 📖 Documentation
 
 - **[Full Specification](TSSN-SPEC.md)**: Complete technical specification
@@ -73,17 +111,21 @@ interface Orders {
 
 ### Schema Documentation
 
-```typescript
-// Git-friendly, diff-friendly schema documentation
-// Changes are immediately visible in pull requests
+TSSN is git-friendly and diff-friendly — schema changes are immediately
+visible in pull requests.
 
-// v1.0
+**v1.0:**
+
+```typescript
 interface Users {
   id: int;
   email: string(255);
 }
+```
 
-// v2.0 - Added organization support
+**v2.0 — added organization support:**
+
+```typescript
 interface Users {
   id: int;
   email: string(255);
@@ -107,16 +149,28 @@ interface UserResponse {
 
 ## 📦 Implementations
 
-*No reference implementations yet — TSSN is currently a draft specification.*
+The **reference TypeScript parser** lives in
+[`reference/typescript/`](reference/typescript/) and claims
+[Level 3 (Extended)](TSSN-SPEC.md#513-level-3--extended) conformance.
+It is parser + semantic validator only — no type mapper, no DDL
+generator, no database introspector — and runs against the
+comprehensive conformance suite under
+[`tests/conformance/`](tests/conformance/) (15 L1 + 25 L2 + 26 L3
+fixtures).
 
-Interested in building one? See [CONTRIBUTING.md](CONTRIBUTING.md) and [IMPLEMENTATION.md](IMPLEMENTATION.md) for parser/generator guidelines.
+Not published to npm. Use the source directly for now.
+
+Interested in building a second implementation in another language?
+See [CONTRIBUTING.md](CONTRIBUTING.md), [IMPLEMENTATION.md](IMPLEMENTATION.md),
+and [CHARTER.md](CHARTER.md). A second implementation that passes the
+full Level 3 conformance suite is the last missing piece before TSSN
+can leave draft status.
 
 ## 🔧 Integration Examples
 
 ### MCP Server Integration
 
-```typescript
-// Model Context Protocol server returning schemas in TSSN
+```json
 {
   "tools": [{
     "name": "get_schema",

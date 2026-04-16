@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Trailing comment after the closing brace is ignored",
+  "level": 1,
+  "tables": [{ "name": "Users", "columns": ["id"] }]
+}

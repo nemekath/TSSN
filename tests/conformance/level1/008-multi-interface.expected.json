@@ -1,0 +1,11 @@
+{
+  "kind": "positive",
+  "description": "Three interfaces in declaration order",
+  "level": 1,
+  "declarationCount": 3,
+  "tables": [
+    { "name": "A", "columns": ["id"] },
+    { "name": "B", "columns": ["id"] },
+    { "name": "C", "columns": ["id"] }
+  ]
+}

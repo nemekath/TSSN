@@ -1,0 +1,10 @@
+{
+  "kind": "positive",
+  "description": "Top-of-file @schema propagates across an intervening type alias to both interfaces",
+  "level": 3,
+  "aliases": [{ "name": "Status" }],
+  "tables": [
+    { "name": "Users", "columns": ["id", "status"], "schema": "app" },
+    { "name": "Projects", "columns": ["id", "status"], "schema": "app" }
+  ]
+}

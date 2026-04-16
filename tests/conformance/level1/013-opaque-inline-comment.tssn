@@ -1,0 +1,4 @@
+interface Users {
+  id: int;    // arbitrary note that must survive as rawComment
+  email: string;
+}

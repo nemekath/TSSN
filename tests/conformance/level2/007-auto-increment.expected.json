@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "PRIMARY KEY combined with AUTO_INCREMENT",
+  "level": 2,
+  "tables": [{ "name": "Users", "columns": ["id", "email"] }]
+}

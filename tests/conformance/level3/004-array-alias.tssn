@@ -1,0 +1,6 @@
+type Tags = string[];
+
+interface Articles {
+  id: int;
+  tags: Tags;
+}

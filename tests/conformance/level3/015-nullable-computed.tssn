@@ -1,0 +1,5 @@
+interface Users {
+  id: int;
+  middle_initial?: char(1);
+  display_name?: string(101);   // @computed: full name fallback
+}

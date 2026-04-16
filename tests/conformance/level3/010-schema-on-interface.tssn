@@ -1,0 +1,5 @@
+// @schema: auth
+interface Users {
+  id: int;
+  email: string(255);
+}

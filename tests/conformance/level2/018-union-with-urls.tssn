@@ -1,0 +1,4 @@
+interface Endpoints {
+  id: int;
+  scheme: 'http://local' | 'https://prod';
+}

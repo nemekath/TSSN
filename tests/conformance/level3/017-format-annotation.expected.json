@@ -1,0 +1,11 @@
+{
+  "kind": "positive",
+  "description": "@format annotation preserves vendor-type intent",
+  "level": 3,
+  "tables": [
+    {
+      "name": "GeoData",
+      "columns": ["id", "location", "ip_range", "metadata"]
+    }
+  ]
+}

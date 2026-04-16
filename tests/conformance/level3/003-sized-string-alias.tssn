@@ -1,0 +1,6 @@
+type ShortCode = string(10);
+
+interface Codes {
+  id: int;
+  code: ShortCode;
+}

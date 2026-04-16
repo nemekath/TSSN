@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Composite UNIQUE constraint",
+  "level": 2,
+  "tables": [{ "name": "Memberships", "columns": ["id", "user_id", "org_id"] }]
+}

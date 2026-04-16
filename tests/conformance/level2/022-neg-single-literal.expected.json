@@ -1,0 +1,6 @@
+{
+  "kind": "negative",
+  "description": "A single literal is not a valid union — at least two values are required",
+  "level": 2,
+  "errorMessage": "not a valid type"
+}

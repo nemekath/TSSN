@@ -1,0 +1,4 @@
+// @materialized
+interface Bad {
+  id: int;
+}

@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "Cross-schema foreign key captures the (schema, table, column) triple",
+  "level": 2,
+  "tables": [{ "name": "Orders", "columns": ["id", "user_id"] }]
+}

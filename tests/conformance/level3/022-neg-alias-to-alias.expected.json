@@ -1,0 +1,6 @@
+{
+  "kind": "negative",
+  "description": "Alias RHS cannot reference another alias — no transitive resolution",
+  "level": 3,
+  "errorMessage": "cannot reference another alias"
+}

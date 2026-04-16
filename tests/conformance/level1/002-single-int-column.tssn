@@ -1,0 +1,3 @@
+interface Users {
+  id: int;
+}

@@ -1,0 +1,3 @@
+interface A { id: int; }
+interface B { id: int; }
+interface C { id: int; }

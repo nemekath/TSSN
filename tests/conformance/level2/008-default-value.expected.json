@@ -1,0 +1,6 @@
+{
+  "kind": "positive",
+  "description": "DEFAULT constraint with a SQL expression value",
+  "level": 2,
+  "tables": [{ "name": "Users", "columns": ["id", "created_at"] }]
+}

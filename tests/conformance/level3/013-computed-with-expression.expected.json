@@ -1,0 +1,11 @@
+{
+  "kind": "positive",
+  "description": "Computed column with a SQL expression string after @computed:",
+  "level": 3,
+  "tables": [
+    {
+      "name": "Users",
+      "columns": ["id", "first_name", "last_name", "full_name"]
+    }
+  ]
+}
