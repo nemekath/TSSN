@@ -206,26 +206,28 @@ Resolved questions are tracked in Section 10.2 for traceability.
    must be non-nullable. Most SQL engines require non-null PK
    columns; should the validator enforce this?
 
-4. **Security considerations section**: The spec has no Security
-   Considerations section yet. Before 1.0 the spec MUST add one
-   covering parser resource limits, handling of hostile comments,
-   and guidance for consuming TSSN from untrusted sources. Charter
-   Section 8 tracks the scope.
-
-5. **Single-quote handling inside string literals**: The grammar
+4. **Single-quote handling inside string literals**: The grammar
    defines `char_no_sq` as "any character except single quote" with
    no escape sequence. Strings containing `'` currently cannot be
    represented at all, which limits literal unions. Decide whether
    to introduce an escape convention (e.g., SQL-style doubled `''`)
    or keep the restriction.
 
-6. **Cross-implementation ordering of AST fields**: For the
+5. **Cross-implementation ordering of AST fields**: For the
    conformance suite to be language-agnostic, `.ast.json` fixtures
    need a canonical field order and canonical numeric formatting
    (integer vs float). The current TypeScript impl emits objects in
    insertion order; once a second implementation exists, drift is
    possible. Specify a JSON schema for `.ast.json` files before
    publishing the conformance suite as normative.
+
+6. **Fuzzing campaign before 1.0**: Per Spec Section 11.8,
+   structure-aware fuzzing for 24+ CPU-hours is a 1.0 release gate.
+   Not started.
+
+7. **Resource-limit conformance fixtures**: Per Spec Section 11.8,
+   the conformance suite MUST gain boundary fixtures for every
+   resource limit defined in Section 11.3. Not started.
 
 ### 10.2 Resolved questions (v0.8 cycle)
 
@@ -259,6 +261,12 @@ v0.8 editorial pass and no longer need further decision:
   2.2.1–2.2.4.
 - ~~File-level `@schema` propagation~~ — Resolved: non-adjacent
   top-level `@schema` becomes the parse-unit default. Spec 2.7.2.
+- ~~Security Considerations placeholder (Charter Section 8)~~ —
+  Resolved: full Section 11 added to the spec, covering threat
+  model, resource limits, downstream forwarding hazards, parser
+  implementation hazards, error message policy, dependencies, and
+  pre-1.0 open items. The open items moved to Section 10.1 questions
+  6 and 7 (fuzzing campaign, boundary fixtures).
 
 ## 11. References
 

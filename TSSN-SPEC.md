@@ -1248,11 +1248,215 @@ TSSN is designed to be extended by the community. Proposed extensions should mai
 - Backward compatibility
 - Clear semantics
 
-## 11. References
+## 11. Security Considerations
+
+### 11.1 Threat Model
+
+TSSN is a schema notation, not a programming language. It does not
+define an execution model, and a conforming parser does not evaluate
+any value embedded in a schema. The realistic threat surface is
+therefore concentrated in (a) resource consumption by the parser
+itself and (b) the hazard of downstream tools that consume parser
+output and emit SQL, documentation, or code.
+
+This section distinguishes three consumption scenarios.
+Implementations SHOULD declare which scenarios they support and add
+defenses accordingly.
+
+1. **Trusted author.** A developer writes a `.tssn` file describing
+   their own database. The author is trusted; the only realistic
+   threats are accidental denial-of-service from genuinely large
+   schemas and parser crashes that interrupt a build. A reference
+   implementation with reasonable default limits is sufficient for
+   this scenario.
+
+2. **Semi-trusted generator (e.g. LLM output).** A language model or
+   other code generator emits TSSN, which a downstream tool parses
+   and uses to generate SQL or documentation. The generator is
+   partially trusted: it may hallucinate malformed input or, under
+   adversarial prompting, emit deliberately hostile output. Parsers
+   used in this scenario MUST impose resource limits (see Section
+   11.3) and downstream consumers MUST treat every string field
+   sourced from comment text as untrusted input (see Section 11.4).
+
+3. **Anonymous user input.** A web service accepts TSSN from
+   unauthenticated users. This is a fully hostile threat model. The
+   reference parser is **not designed for this scenario out of the
+   box**. Implementations supporting Scenario 3 MUST layer additional
+   defenses on top of what this specification requires: hard
+   input-size caps enforced before invoking the parser, total-parse-
+   time budgets, per-request memory accounting, and output escaping
+   for every downstream emitter.
+
+### 11.2 Non-Goals
+
+This specification does NOT:
+
+- Provide a sandbox or isolation boundary. Parsers run in the process
+  that calls them.
+- Define escaping rules for downstream SQL generation. Escaping is
+  the downstream emitter's responsibility.
+- Specify a maximum schema size. Section 11.3 gives RECOMMENDED
+  defaults; implementations MAY raise or lower them.
+- Evaluate, execute, or interpret any expression embedded in a
+  comment. `@computed` expressions and `DEFAULT` values are captured
+  as opaque strings and MUST NOT be evaluated by a conforming parser
+  (see Section 3.3).
+
+### 11.3 Recommended Parser Resource Limits
+
+A conforming parser SHOULD enforce the following limits.
+Implementations MAY expose them as configuration but MUST default to
+finite values. A parser that accepts arbitrarily large input without
+a cap is conforming but unsafe for Scenarios 2 and 3.
+
+| Resource | RECOMMENDED default | Rationale |
+|---|---|---|
+| Input source length | 1 MiB | A typical real-world schema is <100 KiB. 1 MiB accommodates monorepos. |
+| Total tokens | 1,000,000 | Defeats billion-token empty-interface attacks. |
+| Total top-level declarations | 10,000 | Sanity ceiling; reachable only by generated input. |
+| Identifier length (unquoted) | 1,024 chars | Real identifiers are <64 chars. |
+| Identifier length (backtick-quoted) | 4,096 chars | Accommodates legitimate long quoted names. |
+| String literal length | 64 KiB | Defeats multi-MB literal unions. |
+| Literals per union | 1,024 | Real enums are <100 items. |
+| Line comment length | 8 KiB | Prevents comment-based memory amplification. |
+| Columns per declaration | 4,096 | SQL databases typically cap below this. |
+
+Parsers that exceed any limit MUST report a parse error and stop.
+Parsers MUST NOT truncate silently, because truncation produces an
+AST that does not match the input source and can confuse downstream
+consumers.
+
+### 11.4 Downstream Forwarding Hazards
+
+The TSSN AST preserves several string fields verbatim from source
+comment text so that downstream tools can implement vendor-specific
+behavior. These fields are **untrusted input** from the parser's
+perspective: they contain whatever the schema author wrote, with no
+validation beyond what the parser's regexes enforce. Any downstream
+consumer that interpolates these fields into SQL, shell commands,
+URLs, HTML, or any other target language MUST apply appropriate
+escaping or quoting.
+
+Fields carrying untrusted string content:
+
+- `Column.rawComment` — the entire column trailing comment, verbatim.
+- `Constraint.raw` (all constraint kinds) — the matched constraint
+  substring.
+- `DefaultConstraint.value` — captured up to the next comma or end of
+  comment.
+- `ComputedConstraint.expression` — captured to end of comment;
+  frequently free-form SQL.
+- `ForeignKeyConstraint.table` / `.column` / `.schema` — captured as
+  ASCII word characters only, so these three fields cannot themselves
+  contain quotes or semicolons, but downstream consumers MUST still
+  quote them as SQL identifiers.
+- `ForeignKeyConstraint.tail` — the `ON DELETE` / `ON UPDATE` clause,
+  verbatim.
+- `Annotation.raw` / `Annotation.value` — the annotation key's
+  right-hand side, verbatim.
+- `TableDecl.leadingComments` / `ViewDecl.leadingComments` — arbitrary
+  free-text comments.
+
+Downstream implementers MUST:
+
+1. Never interpolate these fields directly into SQL. Use parameterized
+   queries where values are involved; use the database driver's
+   identifier-quoting function for `table` / `column` / `schema`.
+2. Never `eval`, compile, or otherwise execute
+   `ComputedConstraint.expression`. The spec forbids parsers from
+   doing so (Section 3.3); this prohibition extends to downstream
+   consumers that receive it from the AST.
+3. Treat annotation values as opaque labels. Do not route annotation
+   values into filesystem paths, URLs, or any other context where
+   special characters are consequential without escaping.
+
+### 11.5 Parser Implementation Hazards
+
+Implementers of alternative parsers SHOULD verify the following
+properties in their own implementation:
+
+- **Linear lex time.** The reference lexer is character-at-a-time
+  with no backtracking and is O(n) in source length. Alternative
+  implementations using regex engines MUST audit each pattern for
+  catastrophic backtracking (nested quantifiers, alternation with
+  shared prefixes, ambiguous repetition). The reference parser's
+  constraint and annotation regexes have been reviewed and are linear
+  on all inputs.
+- **Linear union parsing.** Union types parse via a simple loop over
+  pipe separators. Implementations MUST NOT use a recursive
+  `union -> literal | literal '|' union` production without tail-call
+  elimination.
+- **No recursive type expressions.** The grammar forbids nested
+  arrays (`T[][]`), and type aliases MUST NOT reference other aliases.
+  These restrictions ensure type-expression walking is bounded in
+  depth by input width, not by a separate nesting budget.
+  Implementations MUST enforce both restrictions at parse time.
+- **Defensive cycle protection in validators.** Validators that walk
+  type expressions MUST either (a) not descend into
+  `AliasType.resolved`, since the referent was already validated at
+  its declaration site, or (b) carry a visited set. Naive recursion
+  into `resolved` would expose the validator to an infinite loop if
+  alias-to-alias references ever slipped past the parser.
+- **Recovery must make progress.** Error-recovery routines that scan
+  forward to a resynchronization token MUST consume at least one
+  token unconditionally before scanning, or they risk infinite loops
+  when the current token is itself the resync target.
+- **Control characters and non-UTF-8 input.** Parsers MUST reject
+  unrecognized bytes (including NUL, DEL, most C0 control codes) as
+  lex errors. Implementations that consume raw bytes rather than
+  decoded strings MUST either validate UTF-8 up front or reject
+  non-ASCII bytes in the lexer.
+
+### 11.6 Error Message Content
+
+Parser error messages produced by a conforming implementation SHOULD:
+
+- Include source line and column numbers.
+- Include the offending token's value where helpful for diagnosis,
+  subject to log-hygiene policy in the deployment.
+- NOT include internal file paths, stack traces, or language-runtime
+  diagnostics. Error messages are user-facing text, not debugging
+  output.
+
+Implementations used in multi-tenant settings SHOULD be aware that
+error messages may echo input content (quoted identifier names,
+column names, literal values) into logs. Operators who consider
+schema content sensitive SHOULD redact or filter parser errors before
+logging.
+
+### 11.7 Dependencies
+
+The reference parser has zero runtime dependencies. Alternative
+implementations SHOULD minimize runtime dependency surface. A parser
+written against a large dependency graph inherits the security
+posture of that graph; a zero-dependency parser can be audited in
+its entirety.
+
+### 11.8 Pre-1.0 Open Items
+
+The following items MUST be addressed before TSSN leaves draft
+status:
+
+- **Fuzzing campaign.** Run a structure-aware fuzzer against the
+  reference parser for a minimum of 24 CPU-hours with no crash,
+  hang, or OOM outside the declared limits.
+- **Resource-limit conformance tests.** The conformance suite MUST
+  include inputs at each limit boundary (one below, one at, one
+  above) verifying the parser behaves as specified.
+- **Downstream escaping examples.** The spec MUST include at least
+  one worked example showing a downstream SQL generator correctly
+  escaping each hazardous field from Section 11.4.
+- **Security-disclosure process.** The TSSN project SHOULD publish a
+  SECURITY.md with a disclosure contact before 1.0.
+
+## 12. References
 
 - TypeScript Interface Syntax: [https://www.typescriptlang.org/](https://www.typescriptlang.org/)
 - JSON Schema Specification: [https://json-schema.org/](https://json-schema.org/)
 - SQL:2016 Standard (ISO/IEC 9075)
+- RFC 2119 — Key words for use in RFCs: [https://www.rfc-editor.org/rfc/rfc2119](https://www.rfc-editor.org/rfc/rfc2119)
+- RFC 8174 — Ambiguity of uppercase vs lowercase in RFC 2119 key words: [https://www.rfc-editor.org/rfc/rfc8174](https://www.rfc-editor.org/rfc/rfc8174)
 
 ## Appendix A: Grammar (EBNF-style)
 
