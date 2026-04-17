@@ -225,6 +225,18 @@ Resolved questions are tracked in Section 10.2 for traceability.
    the conformance suite MUST gain boundary fixtures for every
    resource limit defined in Section 11.3. Not started.
 
+8. **AST construction API — readonly types or builder pattern?**:
+   Spec Section 2.9.4 defines the `readonly ⟺ readonlyAnnotated ∨
+   ¬updatable` invariant and marks non-conformant AST handling as
+   implementation-defined. That resolves the normative question,
+   but leaves a structural one open: should the exported AST
+   interfaces make the invariant unrepresentable-when-violated (via
+   `readonly` getters, frozen objects, or a ViewDecl factory), so
+   that callers cannot construct denormalized ASTs at all? This is
+   surfaced by successive adversarial reviews that found opposite
+   readings of the validator's responsibilities. Decision deferred
+   to the v0.9 API design cycle.
+
 ### 10.2 Resolved questions (v0.8 cycle)
 
 For traceability, the following questions were resolved during the

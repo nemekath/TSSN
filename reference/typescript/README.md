@@ -166,6 +166,38 @@ Parse errors do not currently carry codes — they are matched by
 substring in the conformance suite via the `errorMessage` sidecar
 field. Assigning stable codes to parser errors is a follow-up item.
 
+## Non-conformant AST handling
+
+TSSN-SPEC Section 2.9.4 defines an AST invariant for views —
+`readonly ⟺ readonlyAnnotated ∨ ¬updatable` — and marks validator
+behavior on objects that violate the invariant as
+**implementation-defined**, with each implementation required to
+document its choice.
+
+**This implementation silently normalizes denormalized derived
+fields.** The `validate()` function reports a `contradictory_view_
+annotations` error only when the contradiction is expressed through
+**primitive** signals: the `@readonly` annotation (or its direct
+counterpart `readonlyAnnotated: true`), the `@updatable` annotation
+(or `updatable: true`), or the `@materialized` annotation (or
+`materialized: true`). The derived `readonly` field is deliberately
+ignored as a contradiction source, because a naive hand-built
+`ViewDecl` with only `updatable: true` set leaves `readonly` at its
+field default `true`, and that is stale derived data rather than
+an explicit read-only claim.
+
+Callers who construct ASTs programmatically and want strict
+invariant enforcement MUST either:
+
+1. Construct the AST through the parser (`parse()` always produces
+   conformant ASTs), or
+2. Pre-validate their ASTs against the Section 2.9.4 invariant
+   before calling `validate()`.
+
+A ViewDecl builder/factory that establishes the invariant
+structurally is Charter Section 10.1 open question 8 and is
+targeted for the v0.9 API-design cycle.
+
 ## Spec ambiguities resolved in this implementation
 
 v0.8 leaves a small number of questions open in [CHARTER.md Section

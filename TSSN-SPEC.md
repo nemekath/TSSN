@@ -737,7 +737,55 @@ view Cached { id: int; }
 // Error: @materialized and @updatable cannot appear on the same view.
 ```
 
-#### 2.9.4 Foreign Keys and Views
+#### 2.9.4 AST Invariants
+
+Implementations that expose a programmatic AST representation of a
+view MUST treat the `readonly` semantic as **derived** from the more
+primitive annotation and explicit-annotation signals. Specifically, a
+conforming AST representation satisfies the following invariant:
+
+```
+readonly  ⟺  readonlyAnnotated  ∨  ¬updatable
+```
+
+(where the right-hand side refers to the explicit `@readonly`
+annotation state and the explicit `@updatable` annotation state).
+
+Stated operationally: `readonly` is `true` precisely when the view
+either carries an explicit `@readonly` annotation, or carries no
+`@updatable` annotation (the default read-only semantic from
+Section 2.9.2). It is NOT an independent signal.
+
+**Validator behavior on non-conformant ASTs.** A conforming
+implementation MAY encounter AST objects that violate this
+invariant — for example, objects constructed programmatically by
+callers that set the derived field directly without updating the
+primitive signals. The specification does **not** prescribe a single
+correct behavior in this case. Implementations:
+
+- MAY reject non-conformant ASTs with a diagnostic error
+- MAY silently normalize derived fields from primitive signals and
+  continue
+- MAY emit a warning and continue
+
+Each implementation MUST document which of these it does in its
+public documentation (e.g., its README). Consumers that need
+cross-implementation interoperability MUST construct ASTs that
+already satisfy the invariant — either by using the parser (which
+produces conformant ASTs by construction) or by going through an
+implementation-provided builder/factory that establishes the
+invariant.
+
+**Rationale.** Without this rule, two conforming implementations can
+disagree on whether a denormalized AST is "valid": one treats stale
+derived fields as contradictions, the other silently normalizes. The
+implementation-defined language here intentionally permits both
+readings, while requiring that the invariant itself be defined
+normatively and that every implementation's choice be documented.
+This is the same pattern used by RFC 2119 / RFC 8174 standards when
+a trade-off is genuinely irreducible.
+
+#### 2.9.5 Foreign Keys and Views
 
 Views MAY appear as targets in foreign-key-style comments for documentation
 purposes, but parsers MUST NOT treat them as enforced foreign keys — the
