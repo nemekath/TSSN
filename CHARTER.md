@@ -124,6 +124,22 @@ addition to human review.
    from Appendix A (CRLF, BOM, escaped backticks, `//` inside string
    literals, etc.) remain covered.
 
+### 5.3 Escalation of Irreducible Design Tensions
+
+When an adversarial review cycle produces 2+ passes with
+contradictory findings on the same boundary (function, field, or
+semantic check), the `design-tension-auditor` subagent MUST be
+invoked before further code changes. It inspects the revision
+history for the ping-pong signature and, where detected,
+recommends moving the decision into normative spec text — either
+by committing the choice under RFC 2119 keywords or by marking it
+as implementation-defined with a documentation requirement.
+
+Further code edits on a flagged boundary without a corresponding
+spec-level resolution are discouraged. The standards-body pattern
+for irreducible trade-offs is to promote them one layer up-stack,
+not to keep re-litigating them in a single implementation.
+
 ## 6. Conformance Levels (Summary)
 
 Implementations MUST declare the highest level they claim. Details in
