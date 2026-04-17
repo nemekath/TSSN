@@ -20,8 +20,7 @@ describe('parser / error reporting / line and column accuracy', () => {
   broken
 }`;
     const { errors } = parseRaw(src);
-    // "broken" starts at column 3 (after two spaces of indent)
-    expect(errors[0]!.span.start.column).toBeGreaterThanOrEqual(1);
+    expect(errors[0]!.span.start.column).toBe(3);
   });
 
   it('points at the offending token for a missing brace', () => {
@@ -90,19 +89,19 @@ describe('parser / error reporting / AggregateError shape', () => {
       if (e instanceof AggregateError) caught = e;
     }
     expect(caught).toBeDefined();
-    expect(caught!.errors.length).toBeGreaterThanOrEqual(2);
+    expect(caught!.errors.length).toBe(2);
   });
 
   it('AggregateError message includes error count', () => {
+    let caught = false;
     try {
       parse('interface X { id: int; id: int; }');
     } catch (e) {
-      if (e instanceof AggregateError) {
-        expect(e.message).toMatch(/error\(s\)/);
-      } else {
-        throw e;
-      }
+      caught = true;
+      expect(e).toBeInstanceOf(AggregateError);
+      expect((e as AggregateError).message).toMatch(/error\(s\)/);
     }
+    expect(caught).toBe(true);
   });
 });
 

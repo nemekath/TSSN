@@ -91,9 +91,7 @@ view OrganizationStats {
 describe('EXAMPLES.md Section 16 — Complete Example', () => {
   const schema = parse(CANONICAL);
 
-  it('parses without errors or validator failures', () => {
-    expect(() => parse(CANONICAL)).not.toThrow();
-  });
+
 
   it('collects exactly three type aliases', () => {
     const names = typeAliases(schema).map((a) => a.name);

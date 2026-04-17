@@ -64,7 +64,7 @@ export function parseInlineConstraints(rawComment: string): Constraint[] {
   }
 
   // DEFAULT <value>  — value runs to the next comma or end of string.
-  const defaultMatch = rawComment.match(/\bDEFAULT\s+([^,]+?)(?:\s*,|$)/i);
+  const defaultMatch = rawComment.match(/\bDEFAULT\s+([^,@]+?)(?:\s*[,@]|$)/i);
   if (defaultMatch) {
     const value = defaultMatch[1]!.trim();
     out.push({

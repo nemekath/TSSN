@@ -24,6 +24,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONFORMANCE_ROOT = resolve(__dirname, '../../../tests/conformance');
 
+type ColumnSpec = string | { name: string; nullable?: boolean };
+
 interface PositiveExpected {
   kind: 'positive';
   description: string;
@@ -31,12 +33,15 @@ interface PositiveExpected {
   declarationCount?: number;
   tables?: Array<{
     name: string;
-    columns?: string[];
+    columns?: ColumnSpec[];
+    /** Per-column constraint-kind assertions. Key = column name, value = expected kinds. */
+    columnConstraints?: Record<string, string[]>;
     schema?: string;
   }>;
   views?: Array<{
     name: string;
-    columns?: string[];
+    columns?: ColumnSpec[];
+    columnConstraints?: Record<string, string[]>;
     materialized?: boolean;
     readonly?: boolean;
     schema?: string;
@@ -84,8 +89,33 @@ function loadFixtures(level: 1 | 2 | 3): Fixture[] {
 
 // ---------- assertion helpers ----------
 
+import type { Column } from '../src/ast.js';
+
+function assertColumns(got: Column[], expected: ColumnSpec[]): void {
+  const expectedNames = expected.map((c) => (typeof c === 'string' ? c : c.name));
+  expect(got.map((c) => c.name)).toEqual(expectedNames);
+  for (const [i, spec] of expected.entries()) {
+    if (typeof spec === 'object' && spec.nullable !== undefined) {
+      expect(got[i]!.nullable).toBe(spec.nullable);
+    }
+  }
+}
+
+function assertColumnConstraints(
+  got: Column[],
+  expectedConstraints: Record<string, string[]>
+): void {
+  for (const [colName, kinds] of Object.entries(expectedConstraints)) {
+    const col = got.find((c) => c.name === colName);
+    expect(col, `column '${colName}' not found`).toBeDefined();
+    const gotKinds = col!.constraints.map((c) => c.kind);
+    for (const kind of kinds) {
+      expect(gotKinds).toContain(kind);
+    }
+  }
+}
+
 function runPositive(fx: Fixture, expected: PositiveExpected): void {
-  // parse() throws on any parse or validation error
   const schema = parse(fx.tssn, { filename: `${fx.name}.tssn` });
 
   if (expected.declarationCount !== undefined) {
@@ -103,7 +133,10 @@ function runPositive(fx: Fixture, expected: PositiveExpected): void {
     for (const [i, expectedTable] of expected.tables.entries()) {
       const gotTable = got[i]!;
       if (expectedTable.columns !== undefined) {
-        expect(gotTable.columns.map((c) => c.name)).toEqual(expectedTable.columns);
+        assertColumns(gotTable.columns, expectedTable.columns);
+      }
+      if (expectedTable.columnConstraints !== undefined) {
+        assertColumnConstraints(gotTable.columns, expectedTable.columnConstraints);
       }
       if (expectedTable.schema !== undefined) {
         expect(gotTable.schema).toBe(expectedTable.schema);
@@ -117,7 +150,10 @@ function runPositive(fx: Fixture, expected: PositiveExpected): void {
     for (const [i, expectedView] of expected.views.entries()) {
       const gotView = got[i]!;
       if (expectedView.columns !== undefined) {
-        expect(gotView.columns.map((c) => c.name)).toEqual(expectedView.columns);
+        assertColumns(gotView.columns, expectedView.columns);
+      }
+      if (expectedView.columnConstraints !== undefined) {
+        assertColumnConstraints(gotView.columns, expectedView.columnConstraints);
       }
       if (expectedView.materialized !== undefined) {
         expect(gotView.materialized).toBe(expectedView.materialized);

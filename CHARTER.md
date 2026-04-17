@@ -28,7 +28,7 @@ specification, reference implementations, and conformance tests.
 - At least one reference implementation that passes a conformance test
   suite exercising every normative feature
 - A test-suite format (`tests/conformance/levelN/` with paired
-  `.tssn` / `.ast.json` fixtures) usable by any language implementation
+  `.tssn` / `.expected.json` fixtures) usable by any language implementation
 
 ### 2.2 Out of Scope
 
@@ -155,19 +155,15 @@ ASTs for the same input. Until then, that role is deferred.
 
 ## 8. Security Considerations
 
-The specification's Security Considerations section (to be added
-before 1.0) will address:
+The specification's Security Considerations section was added as
+Section 11 (eight subsections) during the v0.8 editorial cycle. It
+covers the three-tier threat model, recommended parser resource
+limits (Section 11.3), downstream SQL-injection forwarding hazards
+(Section 11.4), parser implementation hazards (Section 11.5), and
+pre-1.0 open items including a fuzzing campaign (Section 11.8).
 
-- Parser resource limits against pathological inputs
-  (deeply-nested declarations, extremely long identifiers, oversized
-  literal unions)
-- Handling of potentially-hostile comments containing control
-  characters or injection payloads
-- Guidance for implementations that consume TSSN from untrusted
-  sources (LLM input, user-submitted schemas)
-
-These considerations are not blocking for 0.8 but are a release gate
-for 1.0.
+Remaining pre-1.0 gates from Section 11.8 are tracked as open
+questions in Section 10.1.
 
 ## 9. Editorial Team
 
@@ -214,11 +210,11 @@ Resolved questions are tracked in Section 10.2 for traceability.
    or keep the restriction.
 
 5. **Cross-implementation ordering of AST fields**: For the
-   conformance suite to be language-agnostic, `.ast.json` fixtures
+   conformance suite to be language-agnostic, `.expected.json` fixtures
    need a canonical field order and canonical numeric formatting
    (integer vs float). The current TypeScript impl emits objects in
    insertion order; once a second implementation exists, drift is
-   possible. Specify a JSON schema for `.ast.json` files before
+   possible. Specify a JSON schema for `.expected.json` files before
    publishing the conformance suite as normative.
 
 6. **Fuzzing campaign before 1.0**: Per Spec Section 11.8,

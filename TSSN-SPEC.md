@@ -1052,7 +1052,7 @@ A reference conformance test suite lives in `tests/conformance/` in the
 TSSN repository. Each test case consists of:
 
 - A `.tssn` input file
-- A `.ast.json` expected output file representing the parsed AST
+- A `.expected.json` expected output file representing the parsed AST
 
 Tests are grouped by level (`level1/`, `level2/`, `level3/`). An
 implementation claims a conformance level by passing every test in that

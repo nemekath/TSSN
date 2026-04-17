@@ -1,6 +1,15 @@
 {
   "kind": "positive",
-  "description": "Single-schema foreign key reference",
+  "description": "FK -> Table(col) reference is parsed into a foreign_key constraint on the column",
   "level": 2,
-  "tables": [{ "name": "Orders", "columns": ["id", "user_id"] }]
+  "tables": [
+    {
+      "name": "Orders",
+      "columns": ["id", "user_id"],
+      "columnConstraints": {
+        "id": ["primary_key"],
+        "user_id": ["foreign_key"]
+      }
+    }
+  ]
 }

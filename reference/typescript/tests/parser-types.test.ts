@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '../src/parser.js';
 import { tables, type BaseType } from '../src/ast.js';
-
-function firstColumn(source: string) {
-  const schema = parse(source);
-  return tables(schema)[0]!.columns[0]!;
-}
+import { firstColumn } from './helpers.js';
 
 describe('parser / base types', () => {
   it.each([

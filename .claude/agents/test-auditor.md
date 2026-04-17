@@ -135,7 +135,7 @@ with:
 If `tests/conformance/` exists at the repo root, walk
 `level1/`, `level2/`, and `level3/` and verify:
 
-- Every `.tssn` file has a paired `.ast.json`
+- Every `.tssn` file has a paired `.expected.json`
 - No `.tssn` file exists without a pair (or vice versa)
 - The harness under `reference/typescript/tests/conformance.test.ts`
   actually reads the fixtures and deep-equals against them

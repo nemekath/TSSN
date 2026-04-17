@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse, parseRaw } from '../src/parser.js';
-import { tables, type Literal, type UnionType } from '../src/ast.js';
-
-function firstColumn(src: string) {
-  return tables(parse(src))[0]!.columns[0]!;
-}
+import { type Literal, type UnionType } from '../src/ast.js';
+import { firstColumn } from './helpers.js';
 
 function union(src: string): UnionType {
   const col = firstColumn(src);
@@ -74,23 +71,21 @@ describe('parser / literal union types', () => {
     const { schema, errors: parseErrors } = parseRaw(
       "interface X { v: 'yes' | 1; }"
     );
-    // Parser succeeds, validator rejects at parse() level; use parseRaw
-    // to inspect the raw parse first
     expect(parseErrors).toEqual([]);
-    // Now run the full parse which includes validation
+    expect(schema.declarations).toHaveLength(1);
+    // parse() includes validation — MUST throw, catch guard ensures
+    // the test fails if it doesn't
+    let caught = false;
     try {
       parse("interface X { v: 'yes' | 1; }");
     } catch (e) {
-      if (e instanceof AggregateError) {
-        const messages = (e.errors as Array<{ code?: string }>).map(
-          (er) => er.code
-        );
-        expect(messages).toContain('heterogeneous_union');
-      } else {
-        throw e;
-      }
+      caught = true;
+      expect(e).toBeInstanceOf(AggregateError);
+      const codes = ((e as AggregateError).errors as Array<{ code?: string }>).map(
+        (er) => er.code
+      );
+      expect(codes).toContain('heterogeneous_union');
     }
-    // The raw schema still contains the union so downstream inspection works
-    expect(schema.declarations).toHaveLength(1);
+    expect(caught).toBe(true);
   });
 });

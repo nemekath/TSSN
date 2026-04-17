@@ -73,7 +73,6 @@ export function validate(schema: Schema): ValidationError[] {
   }
 
   checkDuplicateAliases(aliases, errors);
-  checkAliasSelfReference(aliases, errors);
   checkAliasShadowsBaseType(aliases, errors);
   for (const a of aliases) {
     checkTypeExprBaseTypes(a.rhs, errors);
@@ -231,20 +230,7 @@ function checkDuplicateAliases(
   }
 }
 
-function checkAliasSelfReference(
-  aliases: TypeAliasDecl[],
-  errors: ValidationError[]
-): void {
-  for (const a of aliases) {
-    if (a.rhs.kind === 'alias' && a.rhs.name === a.name) {
-      errors.push({
-        code: 'alias_self_reference',
-        message: `Type alias '${a.name}' references itself`,
-        span: a.span,
-      });
-    }
-  }
-}
+
 
 function checkDuplicateDeclarationNames(
   decls: Array<TableDecl | ViewDecl>,

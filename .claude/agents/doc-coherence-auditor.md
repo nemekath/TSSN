@@ -21,13 +21,13 @@ drift report.
    reading will miss cross-references that only become visible at
    document scale. The documents are intentionally small:
 
-   - `/Users/benjamin/Github/TSSN/TSSN-SPEC.md` (~1200 lines)
-   - `/Users/benjamin/Github/TSSN/EXAMPLES.md` (~500 lines)
-   - `/Users/benjamin/Github/TSSN/IMPLEMENTATION.md` (~800 lines)
-   - `/Users/benjamin/Github/TSSN/CHARTER.md` (~250 lines)
-   - `/Users/benjamin/Github/TSSN/CHANGELOG.md` (~300 lines)
-   - `/Users/benjamin/Github/TSSN/README.md` (~180 lines)
-   - `/Users/benjamin/Github/TSSN/reference/typescript/README.md` (~270 lines)
+   - `TSSN-SPEC.md` (~1200 lines)
+   - `EXAMPLES.md` (~500 lines)
+   - `IMPLEMENTATION.md` (~800 lines)
+   - `CHARTER.md` (~250 lines)
+   - `CHANGELOG.md` (~300 lines)
+   - `README.md` (~180 lines)
+   - `reference/typescript/README.md` (~270 lines)
 
 3. **The Conformance Matrix in Spec 5.1.4 is a shared data
    structure.** Any document that mentions conformance levels or

@@ -15,7 +15,7 @@ equivalent harness and read the same fixtures verbatim.
 
 ## Directory Layout
 
-```
+```text
 tests/conformance/
 ├── README.md               (this file — the contract)
 ├── level1/                 (L1 Core fixtures)

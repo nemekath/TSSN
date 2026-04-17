@@ -45,7 +45,7 @@ describe('parser / leading annotations on tables', () => {
       `)
     )[0]!;
     const ann = t.annotations.find((a) => a.key === 'schema')!;
-    expect(ann.span.start.line).toBeGreaterThan(0);
+    expect(ann.span.start.line).toBe(2);
   });
 });
 

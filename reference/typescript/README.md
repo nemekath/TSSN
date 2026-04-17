@@ -205,7 +205,7 @@ documented inline in the code and noted here.
 - DEFAULT values containing quoted commas: the current constraint
   parser truncates at the first comma; a quote-aware tokenizer is
   pending
-- Canonical `.ast.json` field order and numeric formatting for
+- Canonical `.expected.json` field order and numeric formatting for
   cross-implementation conformance: will be specified when a second
   implementation exists
 
@@ -221,7 +221,7 @@ npm test -- tests/conformance.test.ts
 To add a new fixture, drop a pair of files into the right level
 directory at `../../tests/conformance/levelN/`:
 
-```
+```text
 ../../tests/conformance/level2/042-your-feature.tssn
 ../../tests/conformance/level2/042-your-feature.expected.json
 ```
@@ -233,7 +233,7 @@ format (in which case extend `runPositive` or `runNegative` in
 
 ## Directory layout
 
-```
+```text
 reference/typescript/
 ├── README.md                      (this file)
 ├── package.json                   devDeps only, "private": true

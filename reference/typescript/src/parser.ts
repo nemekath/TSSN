@@ -576,7 +576,7 @@ class Parser {
       }
       this.consume();
       const parsed = Number.parseInt(numTok.value, 10);
-      if (!Number.isFinite(parsed) || parsed < 0) {
+      if (parsed < 0) {
         throw new ParseError({
           message: 'Length must be a non-negative integer',
           span: numTok.span,

@@ -52,7 +52,7 @@ generation and a clear conformance story for implementers.
     domain annotations
   - Each implementation MUST declare its target level
 - **Section 5.4: Conformance Test Suite** — Official `tests/conformance/`
-  directory with `.tssn` inputs and `.ast.json` expected outputs, grouped
+  directory with `.tssn` inputs and `.expected.json` expected outputs, grouped
   by level
 
 ### Changed

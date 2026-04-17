@@ -31,6 +31,7 @@ class TSSNParser:
         self.current_line = 0
 
         schema = Schema()
+        pending_comments = []  # v0.8.0: buffered leading comments
 
         while self.current_line < len(self.lines):
             line = self.lines[self.current_line].strip()
@@ -148,13 +149,16 @@ class TSSNParser:
             for col in view.columns:
                 resolve_column(col)
     
-    def parse_interface(self, kind: str = 'table') -> Table:
+    def parse_interface(self, kind: str = 'table',
+                        leading: list = None) -> Table:
         """
         Parse an interface or view declaration (Updated for v0.8.0)
 
         Args:
             kind: 'table' for `interface`, 'view' for `view`
+            leading: buffered preceding comment lines (v0.8.0)
         """
+        leading = leading or []
         line = self.lines[self.current_line]
 
         # Extract name - supports both simple and quoted identifiers

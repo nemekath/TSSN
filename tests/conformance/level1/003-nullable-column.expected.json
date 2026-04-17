@@ -1,6 +1,14 @@
 {
   "kind": "positive",
-  "description": "Nullable column via ? suffix",
+  "description": "Nullable column via ? suffix — asserts both column names and the nullable flag",
   "level": 1,
-  "tables": [{ "name": "Users", "columns": ["id", "email"] }]
+  "tables": [
+    {
+      "name": "Users",
+      "columns": [
+        { "name": "id", "nullable": false },
+        { "name": "email", "nullable": true }
+      ]
+    }
+  ]
 }

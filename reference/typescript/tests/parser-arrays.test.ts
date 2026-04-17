@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '../src/parser.js';
-import { tables, type ArrayType, type BaseType } from '../src/ast.js';
-
-function firstColumn(src: string) {
-  return tables(parse(src))[0]!.columns[0]!;
-}
+import { type ArrayType, type BaseType } from '../src/ast.js';
+import { firstColumn } from './helpers.js';
 
 describe('parser / array types', () => {
   it('parses an array of strings', () => {
@@ -39,8 +36,9 @@ describe('parser / array types', () => {
     expect(col.type.kind).toBe('array');
   });
 
-  it('rejects an array suffix applied to a union', () => {
-    // ('a'|'b')[] is not allowed per the grammar — array only applies to simple_type
+  it('rejects [] after the last literal of a union (array only applies to simple_type)', () => {
+    // The input is 'a' | 'b'[] — the parser consumes the union 'a'|'b',
+    // then [] is a leftover token that triggers a "Expected semi" error.
     expect(() => parse("interface X { v: 'a' | 'b'[]; }")).toThrow(AggregateError);
   });
 });

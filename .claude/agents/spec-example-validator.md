@@ -50,7 +50,7 @@ examples with exact locations and the errors they produced.
    which it is:
 
    ```bash
-   cd /Users/benjamin/Github/TSSN/reference/typescript && \
+   cd reference/typescript && \
      node --experimental-strip-types -e '
        import("./src/parser.ts").then(({ parse }) => {
          try {
@@ -81,21 +81,21 @@ examples with exact locations and the errors they produced.
 Run `Glob` for `*.md` under the repo and `reference/typescript/`.
 The canonical set of documents that can contain TSSN blocks is:
 
-- `/Users/benjamin/Github/TSSN/TSSN-SPEC.md`
-- `/Users/benjamin/Github/TSSN/EXAMPLES.md`
-- `/Users/benjamin/Github/TSSN/IMPLEMENTATION.md`
-- `/Users/benjamin/Github/TSSN/CHARTER.md`
-- `/Users/benjamin/Github/TSSN/CHANGELOG.md`
-- `/Users/benjamin/Github/TSSN/README.md`
-- `/Users/benjamin/Github/TSSN/reference/typescript/README.md`
-- `/Users/benjamin/Github/TSSN/tests/conformance/README.md`
+- `TSSN-SPEC.md`
+- `EXAMPLES.md`
+- `IMPLEMENTATION.md`
+- `CHARTER.md`
+- `CHANGELOG.md`
+- `README.md`
+- `reference/typescript/README.md`
+- `tests/conformance/README.md`
 
 ### Step 2: Extract code blocks
 
 For each document, use `Grep` with a multi-line pattern to find
 ``` ```typescript ... ``` ``` fences. Record each block as:
 
-```
+```text
 {file, startLine, endLine, content, isNegative}
 ```
 
