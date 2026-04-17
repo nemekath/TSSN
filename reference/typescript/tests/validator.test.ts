@@ -309,10 +309,11 @@ describe('parse() integration', () => {
 });
 
 describe('validator / robustness on hand-built Schema', () => {
-  // `validate()` is public API over exported AST types. It MUST treat
-  // view.annotations as the source of truth and MUST NOT throw when
-  // callers construct a Schema with convenience booleans out of sync
-  // with the annotation array.
+  // `validate()` is public API over exported AST types. Both the
+  // annotations array AND the convenience booleans are part of the
+  // semantic surface, so the validator must (a) never throw on any
+  // shape and (b) detect contradictions expressed through EITHER
+  // source.
   const zeroSpan = {
     start: { line: 1, column: 1, offset: 0 },
     end: { line: 1, column: 1, offset: 0 },
@@ -339,33 +340,32 @@ describe('validator / robustness on hand-built Schema', () => {
     };
   }
 
-  it('does not throw when the updatable flag is set but no @updatable annotation is present', () => {
-    // Simulates a caller that flipped .updatable = true without also
-    // appending to .annotations. Pre-fix this made .find(...)! yield
-    // undefined and .span threw a TypeError.
+  it('detects @materialized + @updatable contradiction via booleans alone (empty annotations)', () => {
+    // Caller flipped .materialized and .updatable without appending
+    // annotations. Previous fix silently passed; now caught via union.
     const schema = handBuiltViewSchema({
       materialized: true,
       updatable: true,
-      annotations: [], // deliberately out of sync
+      annotations: [],
     });
-    expect(() => validate(schema)).not.toThrow();
+    const errs = validate(schema);
+    expect(errs.some((e) => e.code === 'contradictory_view_annotations')).toBe(true);
   });
 
-  it('does not throw when materialized+updatable flags disagree with annotations', () => {
+  it('detects @readonly + @updatable contradiction via booleans alone', () => {
     const schema = handBuiltViewSchema({
       readonlyAnnotated: true,
       updatable: true,
       annotations: [],
     });
-    expect(() => validate(schema)).not.toThrow();
+    const errs = validate(schema);
+    expect(errs.some((e) => e.code === 'contradictory_view_annotations')).toBe(true);
   });
 
-  it('treats view.annotations as the source of truth — contradiction only fires when both annotations are actually present', () => {
-    // Flags say no conflict, but annotations contain @materialized +
-    // @updatable. The validator MUST detect this based on annotations.
+  it('detects contradiction via annotations even when booleans lie false', () => {
     const schema = handBuiltViewSchema({
-      materialized: false, // lie: annotations say otherwise
-      updatable: false, // lie: annotations say otherwise
+      materialized: false,
+      updatable: false,
       annotations: [
         { key: 'materialized', raw: '@materialized', span: zeroSpan },
         { key: 'updatable', raw: '@updatable', span: zeroSpan },
@@ -373,5 +373,24 @@ describe('validator / robustness on hand-built Schema', () => {
     });
     const errs = validate(schema);
     expect(errs.some((e) => e.code === 'contradictory_view_annotations')).toBe(true);
+  });
+
+  it('does not throw when updatable flag is set without a matching annotation entry', () => {
+    // Regression guard for the .find(...)! -> .span crash from
+    // commit acb781d.
+    const schema = handBuiltViewSchema({
+      updatable: true,
+      annotations: [],
+    });
+    expect(() => validate(schema)).not.toThrow();
+  });
+
+  it('does not flag a legal plain updatable view (no readonly, no materialized)', () => {
+    const schema = handBuiltViewSchema({
+      updatable: true,
+      annotations: [{ key: 'updatable', raw: '@updatable', span: zeroSpan }],
+    });
+    const errs = validate(schema);
+    expect(errs.some((e) => e.code === 'contradictory_view_annotations')).toBe(false);
   });
 });

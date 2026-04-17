@@ -188,32 +188,39 @@ function checkViewAnnotationCombinations(
   view: ViewDecl,
   errors: ValidationError[]
 ): void {
-  // `validate()` is public API over exported AST types. Callers may
-  // hand-build or mutate a Schema, so we MUST NOT trust the parser-
-  // derived convenience booleans (view.materialized / .updatable /
-  // .readonlyAnnotated) as the source of truth — they can be stale
-  // or fabricated relative to view.annotations. Spec 2.9.3 defines
-  // the combination rule on the annotation set itself, so we scan
-  // that array directly and do defensive lookups so a missing entry
-  // cannot throw.
+  // `validate()` is public API over exported AST types. Both the
+  // `view.annotations` array AND the convenience booleans
+  // (view.materialized / .updatable / .readonlyAnnotated) are part
+  // of the exported semantic surface — a caller can set either one.
+  // A conformant validator must detect contradictions written via
+  // EITHER path, so we take the union: a contradiction fires when
+  // either the annotation entry is present or the corresponding
+  // boolean is set. Span reporting prefers the annotation (precise)
+  // and falls back to the view declaration span for hand-built
+  // ASTs with no matching annotation entry.
   const updatableAnn = view.annotations.find((a) => a.key === 'updatable');
-  if (updatableAnn === undefined) return;
+  const readonlyAnn = view.annotations.find((a) => a.key === 'readonly');
+  const materializedAnn = view.annotations.find((a) => a.key === 'materialized');
 
-  const hasMaterialized = view.annotations.some((a) => a.key === 'materialized');
-  const hasReadonly = view.annotations.some((a) => a.key === 'readonly');
+  const hasUpdatable = updatableAnn !== undefined || view.updatable;
+  if (!hasUpdatable) return;
+
+  const hasReadonly = readonlyAnn !== undefined || view.readonlyAnnotated;
+  const hasMaterialized = materializedAnn !== undefined || view.materialized;
+  const conflictSpan = updatableAnn?.span ?? view.span;
 
   if (hasReadonly) {
     errors.push({
       code: 'contradictory_view_annotations',
       message: `View '${view.name}' carries both @readonly and @updatable — these contradict`,
-      span: updatableAnn.span,
+      span: conflictSpan,
     });
   }
   if (hasMaterialized) {
     errors.push({
       code: 'contradictory_view_annotations',
       message: `View '${view.name}' is @materialized and @updatable — materialized views cannot be portably updated`,
-      span: updatableAnn.span,
+      span: conflictSpan,
     });
   }
 }
