@@ -205,16 +205,22 @@ function checkViewAnnotationCombinations(
   const hasUpdatable = updatableAnn !== undefined || view.updatable;
   if (!hasUpdatable) return;
 
-  // `view.readonly` is the *effective* read-only flag on the exported
-  // public surface. The parser keeps it consistent with `.updatable`
-  // (sets it false when @updatable is present). A hand-built ViewDecl
-  // that leaves `.readonly = true` while also setting `.updatable =
-  // true` has two exported booleans making contradictory claims —
-  // treat that as a contradiction too. Including it here does not
-  // cause false positives on parser-produced ASTs because the parser
-  // always sets .readonly = false for @updatable views.
-  const hasReadonly =
-    readonlyAnn !== undefined || view.readonlyAnnotated || view.readonly;
+  // The union covers only the three DIRECTLY-MAPPED signals:
+  // annotations and their corresponding parser-set booleans
+  // (materialized, updatable, readonlyAnnotated). It deliberately
+  // does NOT include `view.readonly`, which is DERIVED per ast.ts
+  // ("Effective read-only semantic. True when @updatable is absent
+  // OR when @readonly is explicitly present"). A hand-built view
+  // with only `updatable: true` set leaves `readonly` at its field
+  // default `true`, but that denormalized state reflects stale
+  // derived data, not an explicit claim of read-only intent.
+  // Including `view.readonly` here would false-positive on every
+  // minimal hand-built updatable view. The trade-off: a caller that
+  // sets `readonly: true` AND `updatable: true` deliberately (with
+  // no @readonly annotation, no readonlyAnnotated flag) will NOT
+  // be flagged — that is consistent with treating `readonly` as
+  // purely derived.
+  const hasReadonly = readonlyAnn !== undefined || view.readonlyAnnotated;
   const hasMaterialized = materializedAnn !== undefined || view.materialized;
   const conflictSpan = updatableAnn?.span ?? view.span;
 
