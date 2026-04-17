@@ -104,7 +104,7 @@ export function validate(schema: Schema): ValidationError[] {
   return errors;
 }
 
-// ---------- Q2/Q11/Q12 checks ----------
+// ---------- Q2 / Q11 / Q12 / view-annotation checks ----------
 
 function checkAliasShadowsBaseType(
   aliases: TypeAliasDecl[],
@@ -188,11 +188,14 @@ function checkViewAnnotationCombinations(
   view: ViewDecl,
   errors: ValidationError[]
 ): void {
-  const hasMaterialized = view.annotations.some((a) => a.key === 'materialized');
-  const hasReadonly = view.annotations.some((a) => a.key === 'readonly');
-  const hasUpdatable = view.annotations.some((a) => a.key === 'updatable');
-
-  if (hasReadonly && hasUpdatable) {
+  // Use the pre-computed ViewDecl flags rather than re-scanning
+  // view.annotations — the parser already did that scan when it set
+  // these fields. Note: the @readonly check uses `readonlyAnnotated`
+  // (explicit @readonly only), NOT `readonly` (which defaults to true
+  // for unmarked views), because Spec 2.9.3 only flags the
+  // @readonly + @updatable combination when both were written
+  // explicitly.
+  if (view.readonlyAnnotated && view.updatable) {
     const ann = view.annotations.find((a) => a.key === 'updatable')!;
     errors.push({
       code: 'contradictory_view_annotations',
@@ -200,7 +203,7 @@ function checkViewAnnotationCombinations(
       span: ann.span,
     });
   }
-  if (hasMaterialized && hasUpdatable) {
+  if (view.materialized && view.updatable) {
     const ann = view.annotations.find((a) => a.key === 'updatable')!;
     errors.push({
       code: 'contradictory_view_annotations',

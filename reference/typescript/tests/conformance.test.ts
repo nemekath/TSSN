@@ -101,6 +101,18 @@ function assertColumns(got: Column[], expected: ColumnSpec[]): void {
   }
 }
 
+/**
+ * Subset assertion: every expected constraint kind MUST be present
+ * on the column, but the harness does NOT fail on extra kinds the
+ * parser emits. This is a deliberate design choice, not a bug — see
+ * the normative contract at `tests/conformance/README.md` §76-79:
+ * "An implementation MAY expose additional AST detail that is not
+ * described here; the harness MUST NOT fail on extra fields."
+ *
+ * A future fixture that needs exact equality (e.g., "this column has
+ * PK and nothing else") would require a new sidecar field such as
+ * `columnConstraintsExact`. Not added speculatively.
+ */
 function assertColumnConstraints(
   got: Column[],
   expectedConstraints: Record<string, string[]>

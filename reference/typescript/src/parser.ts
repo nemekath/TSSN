@@ -7,10 +7,12 @@
  * The top-level `parse()` wraps `parseRaw()` and throws an AggregateError
  * if any errors were collected.
  *
- * Phase 4 (this file at time of introduction) implements Level 1:
- * interface declarations, simple base types with optional length,
- * nullability markers, and opaque trailing-comment capture. Later
- * phases extend `parseTypeExpr` and add top-level `view` / `type` handling.
+ * Implements Level 3 (Extended) per Spec Section 5.1.3 — the full v0.8
+ * grammar: interfaces, views, type aliases, literal unions, arrays,
+ * quoted identifiers, composite-constraint comments, cross-schema
+ * foreign-key triples, domain annotations, and file-level `@schema`
+ * propagation. Semantic checks that are beyond syntax (heterogeneous
+ * unions, alias/base shadowing, etc.) live in `validate.ts`.
  */
 
 import type {
@@ -460,8 +462,8 @@ class Parser {
   /** Dispatch point for the three `type_expr` alternatives in the
    *  grammar. A literal (`string` or `number` token) signals a union.
    *  Otherwise the type begins with an `ident` and we parse a simple
-   *  type, optionally followed by an array suffix. Alias references are
-   *  handled transparently in `parseSimpleType` (Phase 6). */
+   *  type, optionally followed by an array suffix. Alias references
+   *  are handled transparently by `parseSimpleOrAlias`. */
   private parseTypeExpr(): TypeExpr {
     const tok = this.peek();
     if (tok.kind === 'string' || tok.kind === 'number') {
