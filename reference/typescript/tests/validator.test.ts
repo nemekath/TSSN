@@ -385,12 +385,30 @@ describe('validator / robustness on hand-built Schema', () => {
     expect(() => validate(schema)).not.toThrow();
   });
 
-  it('does not flag a legal plain updatable view (no readonly, no materialized)', () => {
+  it('does not flag a legal plain updatable view (parser-consistent: readonly=false)', () => {
+    // A legal @updatable view must have .readonly = false — that's
+    // what the parser produces. Leaving .readonly at its default
+    // `true` from the base fixture while setting .updatable = true
+    // is itself a contradiction (see next test).
     const schema = handBuiltViewSchema({
+      readonly: false,
       updatable: true,
       annotations: [{ key: 'updatable', raw: '@updatable', span: zeroSpan }],
     });
     const errs = validate(schema);
     expect(errs.some((e) => e.code === 'contradictory_view_annotations')).toBe(false);
+  });
+
+  it('detects contradiction when .readonly and .updatable are both true with empty annotations', () => {
+    // Hand-built view where the exported booleans make directly
+    // contradictory claims. The validator must catch this even
+    // though `readonlyAnnotated` is false and annotations is empty.
+    const schema = handBuiltViewSchema({
+      readonly: true,
+      updatable: true,
+      annotations: [],
+    });
+    const errs = validate(schema);
+    expect(errs.some((e) => e.code === 'contradictory_view_annotations')).toBe(true);
   });
 });

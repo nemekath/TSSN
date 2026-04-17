@@ -205,7 +205,16 @@ function checkViewAnnotationCombinations(
   const hasUpdatable = updatableAnn !== undefined || view.updatable;
   if (!hasUpdatable) return;
 
-  const hasReadonly = readonlyAnn !== undefined || view.readonlyAnnotated;
+  // `view.readonly` is the *effective* read-only flag on the exported
+  // public surface. The parser keeps it consistent with `.updatable`
+  // (sets it false when @updatable is present). A hand-built ViewDecl
+  // that leaves `.readonly = true` while also setting `.updatable =
+  // true` has two exported booleans making contradictory claims —
+  // treat that as a contradiction too. Including it here does not
+  // cause false positives on parser-produced ASTs because the parser
+  // always sets .readonly = false for @updatable views.
+  const hasReadonly =
+    readonlyAnn !== undefined || view.readonlyAnnotated || view.readonly;
   const hasMaterialized = materializedAnn !== undefined || view.materialized;
   const conflictSpan = updatableAnn?.span ?? view.span;
 
