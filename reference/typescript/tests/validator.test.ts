@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse, parseRaw } from '../src/parser.js';
 import { validate } from '../src/validate.js';
+import type { Schema, ViewDecl } from '../src/ast.js';
 
 function errorsFor(src: string) {
   const { schema, errors } = parseRaw(src);
@@ -304,5 +305,73 @@ describe('parse() integration', () => {
         view ActiveUsers { id: int; email: string(255); }
       `)
     ).not.toThrow();
+  });
+});
+
+describe('validator / robustness on hand-built Schema', () => {
+  // `validate()` is public API over exported AST types. It MUST treat
+  // view.annotations as the source of truth and MUST NOT throw when
+  // callers construct a Schema with convenience booleans out of sync
+  // with the annotation array.
+  const zeroSpan = {
+    start: { line: 1, column: 1, offset: 0 },
+    end: { line: 1, column: 1, offset: 0 },
+  };
+
+  function handBuiltViewSchema(overrides: Partial<ViewDecl>): Schema {
+    const base: ViewDecl = {
+      kind: 'view',
+      name: 'V',
+      quoted: false,
+      columns: [],
+      tableConstraints: [],
+      materialized: false,
+      readonly: true,
+      readonlyAnnotated: false,
+      updatable: false,
+      annotations: [],
+      leadingComments: [],
+      span: zeroSpan,
+    };
+    return {
+      source: '',
+      declarations: [{ ...base, ...overrides }],
+    };
+  }
+
+  it('does not throw when the updatable flag is set but no @updatable annotation is present', () => {
+    // Simulates a caller that flipped .updatable = true without also
+    // appending to .annotations. Pre-fix this made .find(...)! yield
+    // undefined and .span threw a TypeError.
+    const schema = handBuiltViewSchema({
+      materialized: true,
+      updatable: true,
+      annotations: [], // deliberately out of sync
+    });
+    expect(() => validate(schema)).not.toThrow();
+  });
+
+  it('does not throw when materialized+updatable flags disagree with annotations', () => {
+    const schema = handBuiltViewSchema({
+      readonlyAnnotated: true,
+      updatable: true,
+      annotations: [],
+    });
+    expect(() => validate(schema)).not.toThrow();
+  });
+
+  it('treats view.annotations as the source of truth — contradiction only fires when both annotations are actually present', () => {
+    // Flags say no conflict, but annotations contain @materialized +
+    // @updatable. The validator MUST detect this based on annotations.
+    const schema = handBuiltViewSchema({
+      materialized: false, // lie: annotations say otherwise
+      updatable: false, // lie: annotations say otherwise
+      annotations: [
+        { key: 'materialized', raw: '@materialized', span: zeroSpan },
+        { key: 'updatable', raw: '@updatable', span: zeroSpan },
+      ],
+    });
+    const errs = validate(schema);
+    expect(errs.some((e) => e.code === 'contradictory_view_annotations')).toBe(true);
   });
 });

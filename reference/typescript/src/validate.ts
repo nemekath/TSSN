@@ -188,27 +188,32 @@ function checkViewAnnotationCombinations(
   view: ViewDecl,
   errors: ValidationError[]
 ): void {
-  // Use the pre-computed ViewDecl flags rather than re-scanning
-  // view.annotations — the parser already did that scan when it set
-  // these fields. Note: the @readonly check uses `readonlyAnnotated`
-  // (explicit @readonly only), NOT `readonly` (which defaults to true
-  // for unmarked views), because Spec 2.9.3 only flags the
-  // @readonly + @updatable combination when both were written
-  // explicitly.
-  if (view.readonlyAnnotated && view.updatable) {
-    const ann = view.annotations.find((a) => a.key === 'updatable')!;
+  // `validate()` is public API over exported AST types. Callers may
+  // hand-build or mutate a Schema, so we MUST NOT trust the parser-
+  // derived convenience booleans (view.materialized / .updatable /
+  // .readonlyAnnotated) as the source of truth — they can be stale
+  // or fabricated relative to view.annotations. Spec 2.9.3 defines
+  // the combination rule on the annotation set itself, so we scan
+  // that array directly and do defensive lookups so a missing entry
+  // cannot throw.
+  const updatableAnn = view.annotations.find((a) => a.key === 'updatable');
+  if (updatableAnn === undefined) return;
+
+  const hasMaterialized = view.annotations.some((a) => a.key === 'materialized');
+  const hasReadonly = view.annotations.some((a) => a.key === 'readonly');
+
+  if (hasReadonly) {
     errors.push({
       code: 'contradictory_view_annotations',
       message: `View '${view.name}' carries both @readonly and @updatable — these contradict`,
-      span: ann.span,
+      span: updatableAnn.span,
     });
   }
-  if (view.materialized && view.updatable) {
-    const ann = view.annotations.find((a) => a.key === 'updatable')!;
+  if (hasMaterialized) {
     errors.push({
       code: 'contradictory_view_annotations',
       message: `View '${view.name}' is @materialized and @updatable — materialized views cannot be portably updated`,
-      span: ann.span,
+      span: updatableAnn.span,
     });
   }
 }
